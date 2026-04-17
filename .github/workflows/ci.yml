@@ -10,8 +10,8 @@ permissions:
 
 jobs:
   workflow-security:
-    # Guards against adding problematic triggers (like pull_request_target)
-    # to any workflow. Runs on ALL PRs including forks — fork PRs are
+    # Guards against adding privileged triggers to any workflow.
+    # Runs on ALL PRs including forks — fork PRs are
     # sandboxed (read-only, no secrets) so this job is safe, and forks are
     # exactly where someone might try to introduce a privileged trigger.
     runs-on: ubuntu-latest
