@@ -37,6 +37,7 @@ jobs:
     # secrets, caching, artifact uploads, or switches to a privileged
     # trigger, this condition prevents fork code from running in a
     # privileged context.
+    needs: workflow-security
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
     runs-on: ubuntu-latest
     env:
