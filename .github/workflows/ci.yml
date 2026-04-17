@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JUST_VERSION: 1.49.0
-      CARGO_INSTALL_ROOT: ${{ runner.temp }}/cargo-install
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -25,15 +24,15 @@ jobs:
         id: cache-just
         uses: actions/cache@v4
         with:
-          path: ${{ env.CARGO_INSTALL_ROOT }}
+          path: $HOME/.cargo
           key: ${{ runner.os }}-just-${{ env.JUST_VERSION }}
 
       - name: Add just to PATH
-        run: echo "${CARGO_INSTALL_ROOT}/bin" >> "$GITHUB_PATH"
+        run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Install just
         if: steps.cache-just.outputs.cache-hit != 'true'
-        run: cargo install just --locked --version "$JUST_VERSION" --root "$CARGO_INSTALL_ROOT"
+        run: cargo install just --locked --version "$JUST_VERSION"
 
       - name: Test
         run: just test
