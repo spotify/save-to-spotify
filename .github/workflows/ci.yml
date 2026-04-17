@@ -2,14 +2,42 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
 jobs:
+  workflow-security:
+    # Guards against adding problematic triggers (like pull_request_target)
+    # to any workflow. Runs on ALL PRs including forks — fork PRs are
+    # sandboxed (read-only, no secrets) so this job is safe, and forks are
+    # exactly where someone might try to introduce a privileged trigger.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Reject insecure workflow triggers
+        run: |
+          # Construct pattern from parts so this script does not match itself.
+          forbidden="pull_request""_target|workflow""_run"
+          if grep -rEn "$forbidden" .github/workflows/; then
+            echo "::error::Insecure workflow trigger detected. These triggers" \
+                 "grant fork PRs access to secrets and write tokens. Remove" \
+                 "them or use the safer 'pull_request' trigger instead."
+            exit 1
+          fi
+
   test:
+    # Only run for pushes and PRs from this repo, never for fork PRs.
+    # With the `pull_request` trigger, fork PRs are already sandboxed by
+    # GitHub (no secrets, read-only token), so this guard is not strictly
+    # needed today. We keep it as defense-in-depth: if someone later adds
+    # secrets, caching, artifact uploads, or switches to a privileged
+    # trigger, this condition prevents fork code from running in a
+    # privileged context.
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
     runs-on: ubuntu-latest
     env:
       JUST_VERSION: 1.49.0
@@ -22,9 +50,9 @@ jobs:
 
       - name: Cache just
         id: cache-just
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: $HOME/.cargo
+          path: ~/.cargo
           key: ${{ runner.os }}-just-${{ env.JUST_VERSION }}
 
       - name: Add just to PATH
