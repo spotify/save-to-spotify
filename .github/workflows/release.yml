@@ -1,0 +1,54 @@
+# Required GitHub Actions secrets:
+#   MACOS_KEYCHAIN            - base64-encoded .keychain-db file
+#   MACOS_KEYCHAIN_PWD        - password to unlock the keychain
+#   MACOS_SIGN_IDENTITY       - codesigning identity name
+#   MACOS_NOTARY_KEY          - base64-encoded App Store Connect API key (.p8)
+#   MACOS_NOTARY_KEY_ID       - App Store Connect API Key ID
+#   MACOS_NOTARY_ISSUER_ID    - App Store Connect API Issuer ID
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    env:
+      JUST_VERSION: 1.49.0
+      CARGO_INSTALL_ROOT: ${{ runner.temp }}/cargo-install
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.22"
+
+      - name: Cache just
+        id: cache-just
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CARGO_INSTALL_ROOT }}
+          key: ${{ runner.os }}-just-${{ env.JUST_VERSION }}
+
+      - name: Add just to PATH
+        run: echo "${CARGO_INSTALL_ROOT}/bin" >> "$GITHUB_PATH"
+
+      - name: Install just
+        if: steps.cache-just.outputs.cache-hit != 'true'
+        run: cargo install just --locked --version "$JUST_VERSION" --root "$CARGO_INSTALL_ROOT"
+
+      - name: Release
+        env:
+          MACOS_KEYCHAIN: ${{ secrets.MACOS_KEYCHAIN }}
+          MACOS_KEYCHAIN_PWD: ${{ secrets.MACOS_KEYCHAIN_PWD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: just release "${{ github.ref_name }}"
