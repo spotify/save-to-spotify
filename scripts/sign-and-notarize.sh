@@ -41,6 +41,7 @@ echo "$MACOS_KEYCHAIN" | base64 --decode > "$KEYCHAIN"
 
 echo "==> Unlocking keychain"
 security unlock-keychain -p "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN"
+
 # Prevent auto-lock during the job (default is a few minutes of idle)
 security set-keychain-settings -lut 21600 "$KEYCHAIN"
 
@@ -72,7 +73,6 @@ echo "==> Notarizing"
 KEY="$RUNNER_TEMP/notary.p8"
 echo "$MACOS_NOTARY_KEY" | base64 --decode > "$KEY"
 
-# notarytool needs a zip/dmg/pkg container, not a bare Mach-O
 ZIP="$RUNNER_TEMP/$(basename "$BINARY").zip"
 ditto -c -k --keepParent "$BINARY" "$ZIP"
 
