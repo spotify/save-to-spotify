@@ -2,15 +2,25 @@
 
 A command-line tool for saving audio content to Spotify. Built for agents and automation — generate a daily briefing, language lesson, or meeting recap, then push it to Spotify where it's available alongside your other listening.
 
+## Quick Start
+
+Prompt your agent to install:
+
+```text
+> Install Save to Spotify by running https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh
+```
+
+The script downloads the matching release for your OS/arch, verifies the SHA256, installs the CLI binary, and links the agent skill into `~/.claude/skills/`, `~/.cursor/skills/`, `~/.config/opencode/skills/`, and `~/.agents/skills/` — so the skill is discoverable by Claude Code, Cursor, Codex/OpenCode, and any agent that reads `.agents/skills/`.
+
+Once installed, invoke with `/save-to-spotify` (Claude Code) or `$save-to-spotify` (Codex), or just describe what you want in plain English.
+
 ## Install
 
-**Quick start (recommended)** — installs the CLI and the agent skill in one step:
+**Curl-bash one-liner** — same script the Quick Start prompt runs:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash
 ```
-
-Detects your OS/arch, downloads the matching release asset, verifies the SHA256 checksum, installs the binary to `/usr/local/bin` (or `~/.local/bin` if `/usr/local/bin` isn't writable), and links the agent skill into `~/.claude/skills/`, `~/.cursor/skills/`, `~/.config/opencode/skills/`, and `~/.agents/skills/` — so it's discoverable by Claude Code, Cursor, Codex/OpenCode, and any agent that reads `.agents/skills/`.
 
 Common options:
 
@@ -24,8 +34,6 @@ curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/instal
 # Binary only — skip the agent skill
 curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash -s -- --no-skills
 ```
-
-After install, invoke the skill from your agent: `/save-to-spotify` (Claude Code) or `$save-to-spotify` (Codex). Or just ask in plain English — the agent will pick up the skill from its description.
 
 **Claude Code plugin marketplace** — alternative if you prefer the marketplace flow:
 
