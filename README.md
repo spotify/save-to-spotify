@@ -7,7 +7,7 @@ A command-line tool for saving audio content to Spotify. Built for agents and au
 Prompt your agent to install:
 
 ```text
-> Install Save to Spotify by running https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh
+> Install Save to Spotify by running https://saveto.spotify.com/install.sh
 ```
 
 Installs the CLI and exposes the skill to Claude Code, Cursor, Codex, and any agent that reads `.agents/skills/`.
@@ -21,20 +21,20 @@ Once installed, invoke with `/save-to-spotify` (Claude Code) or `$save-to-spotif
 Same script the Quick Start prompt runs:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash
+curl -fsSL https://saveto.spotify.com/install.sh | bash
 ```
 
 Common options:
 
 ```bash
 # Pin a specific version
-curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash -s -- --version 0.1.1
+curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --version 0.1.1
 
 # Custom install directory
-curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash -s -- --dir ~/.local/bin
+curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --dir ~/.local/bin
 
 # Binary only — skip the agent skill
-curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash -s -- --no-skills
+curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --no-skills
 ```
 
 ### Claude Code plugin marketplace
