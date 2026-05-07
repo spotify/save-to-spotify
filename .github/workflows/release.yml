@@ -27,6 +27,7 @@ jobs:
           GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-windows-amd64.exe .
           GOOS=windows GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-windows-arm64.exe .
           GOOS=linux   GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-linux-amd64 .
+          GOOS=linux   GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-linux-arm64 .
 
       - name: Sign and notarize macOS binaries
         env:
@@ -39,10 +40,39 @@ jobs:
         run: |
           ./scripts/sign-and-notarize.sh dist/save-to-spotify-darwin-arm64 dist/save-to-spotify-darwin-amd64
 
+      - name: Package binaries with agent skill
+        run: |
+          version="$(git describe --tags --always 2>/dev/null | sed 's/^v//' || echo "dev")"
+          skills_src="$(pwd)/plugin/skills"
+          cd dist
+          dist_dir="$(pwd)"
+          for binary in save-to-spotify-*; do
+            case "$binary" in *.zip|*.sha256) continue ;; esac
+            case "$binary" in *.exe) inner="save-to-spotify.exe" ;; *) inner="save-to-spotify" ;; esac
+
+            stage="$(mktemp -d)"
+            cp "$binary" "$stage/$inner"
+            cp -R "$skills_src" "$stage/skills"
+
+            base="${binary%.exe}"
+            zip_name="${base}-v${version}.zip"
+            (cd "$stage" && zip -qr "${dist_dir}/${zip_name}" "$inner" skills)
+            rm -rf "$stage"
+
+            echo "Packaged: dist/${zip_name}"
+          done
+
+      - name: Emit SHA256 sidecars
+        run: |
+          cd dist
+          for zip in *.zip; do
+            shasum -a 256 "$zip" > "${zip}.sha256"
+          done
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ github.ref_name }}" dist/save-to-spotify-* \
+          gh release create "${{ github.ref_name }}" dist/*.zip dist/*.sha256 \
             --title "${{ github.ref_name }}" \
             --generate-notes
