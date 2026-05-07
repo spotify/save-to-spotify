@@ -10,7 +10,7 @@ Prompt your agent to install:
 > Install Save to Spotify by running https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh
 ```
 
-The script downloads the matching release for your OS/arch, verifies the SHA256, installs the CLI binary, and links the agent skill into `~/.claude/skills/`, `~/.cursor/skills/`, `~/.config/opencode/skills/`, and `~/.agents/skills/` — so the skill is discoverable by Claude Code, Cursor, Codex/OpenCode, and any agent that reads `.agents/skills/`.
+Installs the CLI and exposes the skill to Claude Code, Cursor, Codex, and any agent that reads `.agents/skills/`.
 
 Once installed, invoke with `/save-to-spotify` (Claude Code) or `$save-to-spotify` (Codex), or just describe what you want in plain English.
 
