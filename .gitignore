@@ -1,0 +1,38 @@
+# Binaries
+/save-to-spotify
+dist/
+.tc-tools/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# Dependency directory
+vendor/
+
+# Environment
+.env
+.env.*
+
+# OS files
+.DS_Store
+
+# Local agent tool config
+.claude/
+.agents/
+
+# Media
+*.mp3
+*.mp4
+*.m4a

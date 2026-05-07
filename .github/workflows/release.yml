@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.22"
+
+      - name: Cross-compile all platforms
+        run: |
+          commit="$(git rev-parse --short HEAD)"
+          version="$(git describe --tags --always 2>/dev/null | sed 's/^v//' || echo "dev")"
+          LDFLAGS="-X github.com/spotify/save-to-spotify/cmd.commit=${commit} -X github.com/spotify/save-to-spotify/cmd.version=${version}"
+          GOOS=darwin  GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-darwin-arm64 .
+          GOOS=darwin  GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-darwin-amd64 .
+          GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-windows-amd64.exe .
+          GOOS=windows GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-windows-arm64.exe .
+          GOOS=linux   GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-linux-amd64 .
+
+      - name: Sign and notarize macOS binaries
+        env:
+          MACOS_KEYCHAIN: ${{ secrets.MACOS_KEYCHAIN }}
+          MACOS_KEYCHAIN_PWD: ${{ secrets.MACOS_KEYCHAIN_PWD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+        run: |
+          ./scripts/sign-and-notarize.sh dist/save-to-spotify-darwin-arm64 dist/save-to-spotify-darwin-amd64
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist/save-to-spotify-* \
+            --title "${{ github.ref_name }}" \
+            --generate-notes

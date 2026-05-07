@@ -1,0 +1,16 @@
+{
+  "name": "save-to-spotify",
+  "owner": {
+    "name": "Spotify"
+  },
+  "plugins": [
+    {
+      "name": "save-to-spotify",
+      "source": "./plugin",
+      "description": "Create polished audio episodes and save them to Spotify via the save-to-spotify CLI.",
+      "version": "0.1.0",
+      "category": "audio",
+      "keywords": ["spotify", "audio", "podcast", "tts"]
+    }
+  ]
+}
