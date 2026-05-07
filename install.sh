@@ -7,10 +7,10 @@
 # and any tool that reads ~/.agents/skills/). Pass --no-skills to opt out.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash
-#   curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash -s -- --version 0.1.1-rc.1
-#   curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash -s -- --dir ~/.local/bin
-#   curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash -s -- --no-skills
+#   curl -fsSL https://saveto.spotify.com/install.sh | bash
+#   curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --version 0.1.1-rc.1
+#   curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --dir ~/.local/bin
+#   curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --no-skills
 #
 # Environment variables:
 #   SAVE_TO_SPOTIFY_INSTALL_DIR     Override install directory
