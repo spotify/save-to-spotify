@@ -2,40 +2,50 @@
 
 A command-line tool for saving audio content to Spotify. Built for agents and automation — generate a daily briefing, language lesson, or meeting recap, then push it to Spotify where it's available alongside your other listening.
 
-## Quick Start
+## Install
 
-Prompt your agent to install using:
-
-```text
-> Install the Save to Spotify CLI and skill plugin from https://github.com/spotify/save-to-spotify/releases/latest
-```
-
-Once installed, use the skill to get started.
-
-Invoke with `/save-to-spotify` (Claude) or `$save-to-spotify` (Codex).
-
-## Manual installation
-
-### Download a binary manually
-
-Grab the latest release for your platform from the [releases page](https://github.com/spotify/save-to-spotify/releases).
+**Quick start (recommended)** — installs the CLI and the agent skill in one step:
 
 ```bash
-# macOS Apple Silicon
-gh release download --repo spotify/save-to-spotify --pattern "save-to-spotify-darwin-arm64"
-chmod +x save-to-spotify-darwin-arm64
-sudo mv save-to-spotify-darwin-arm64 /usr/local/bin/save-to-spotify
-
-# macOS Intel
-gh release download --repo spotify/save-to-spotify --pattern "save-to-spotify-darwin-amd64"
-chmod +x save-to-spotify-darwin-amd64
-sudo mv save-to-spotify-darwin-amd64 /usr/local/bin/save-to-spotify
-
-# Linux x86_64
-gh release download --repo spotify/save-to-spotify --pattern "save-to-spotify-linux-amd64"
-chmod +x save-to-spotify-linux-amd64
-sudo mv save-to-spotify-linux-amd64 /usr/local/bin/save-to-spotify
+curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash
 ```
+
+Detects your OS/arch, downloads the matching release asset, verifies the SHA256 checksum, installs the binary to `/usr/local/bin` (or `~/.local/bin` if `/usr/local/bin` isn't writable), and links the agent skill into `~/.claude/skills/`, `~/.cursor/skills/`, `~/.config/opencode/skills/`, and `~/.agents/skills/` — so it's discoverable by Claude Code, Cursor, Codex/OpenCode, and any agent that reads `.agents/skills/`.
+
+Common options:
+
+```bash
+# Pin a specific version
+curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash -s -- --version 0.1.1
+
+# Custom install directory
+curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash -s -- --dir ~/.local/bin
+
+# Binary only — skip the agent skill
+curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash -s -- --no-skills
+```
+
+After install, invoke the skill from your agent: `/save-to-spotify` (Claude Code) or `$save-to-spotify` (Codex). Or just ask in plain English — the agent will pick up the skill from its description.
+
+**Claude Code plugin marketplace** — alternative if you prefer the marketplace flow:
+
+```
+/plugin marketplace add spotify/save-to-spotify
+/plugin install save-to-spotify@save-to-spotify
+```
+
+### Manual installation
+
+If you can't run the install script:
+
+1. Download `save-to-spotify-{os}-{arch}-v{version}.zip` and its matching `.sha256` from the [releases page](https://github.com/spotify/save-to-spotify/releases).
+2. Verify integrity:
+   ```bash
+   shasum -c save-to-spotify-darwin-arm64-v0.1.1.zip.sha256
+   ```
+3. Unzip — you get the binary plus a `skills/save-to-spotify/` tree.
+4. Move the binary to a directory on your `PATH` and `chmod +x` it.
+5. (Optional) Copy `skills/save-to-spotify/` into your agent's skill directory, e.g. `~/.claude/skills/save-to-spotify/` or `~/.cursor/skills/save-to-spotify/`.
 
 ### Build from source
 
