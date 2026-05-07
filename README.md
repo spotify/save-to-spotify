@@ -16,7 +16,9 @@ Once installed, invoke with `/save-to-spotify` (Claude Code) or `$save-to-spotif
 
 ## Install
 
-**Curl-bash one-liner** — same script the Quick Start prompt runs:
+### Curl-bash
+
+Same script the Quick Start prompt runs:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash
@@ -35,14 +37,14 @@ curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/instal
 curl -fsSL https://raw.githubusercontent.com/spotify/save-to-spotify/main/install.sh | bash -s -- --no-skills
 ```
 
-**Claude Code plugin marketplace** — alternative if you prefer the marketplace flow:
+### Claude Code plugin marketplace
 
 ```
 /plugin marketplace add spotify/save-to-spotify
 /plugin install save-to-spotify@save-to-spotify
 ```
 
-### Manual installation
+### Manual
 
 If you can't run the install script:
 
