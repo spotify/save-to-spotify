@@ -18,6 +18,8 @@ Every episode walks the same steps. Recipes define what to write (sourcing, scri
 5. Calculate chapter timestamps from cumulative segment durations
 6. Build `timeline.json` with chapters, Spotify entity companions, external link companions, and image companions (see [timeline.md](timeline.md))
 
+**Accepted formats:** `.mp3`, `.m4a`, `.wav`, `.ogg` (max 1 GB). Default to `.mp3`. Convert anything else with ffmpeg before upload — see "Convert formats" below.
+
 ### Voice selection guide
 
 - **Kokoro** (local, free): `af_alloy` (American female, recommended), `am_adam` (American male), `bf_emma` (British female), `bm_george` (British male)
@@ -259,11 +261,11 @@ ffmpeg -i /tmp/output.mp3 -af loudnorm /tmp/output_normalized.mp3
 
 ### Convert formats
 
-If the TTS outputs .wav or .aiff, convert to .mp3 or .m4a before saving:
+If the TTS outputs a format other than `.mp3`, `.m4a`, `.wav`, or `.ogg`, convert before upload:
 
 ```shell
-ffmpeg -i input.wav -codec:a libmp3lame -qscale:a 2 output.mp3
-ffmpeg -i input.aiff -codec:a aac -b:a 192k output.m4a
+ffmpeg -i input.aiff -codec:a libmp3lame -qscale:a 2 output.mp3
+ffmpeg -i input.webm -codec:a libmp3lame -qscale:a 2 output.mp3
 ```
 
 ### Get segment duration (for timeline timestamps)
