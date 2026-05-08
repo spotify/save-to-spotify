@@ -287,17 +287,21 @@ def ms(path):
     return int(float(out) * 1000)
 
 # Each segment: (chapter_title, audio_file, companions)
-# companions is a list of dicts: {"image": "img_01_a.jpg", "url": "...", "title": "..."}
-#                            or: {"link":  "https://..."}
+# companions is a list of dicts:
+#   {"image": "img_01_a.jpg", "url": "...", "title": "..."}  -- image companion
+#   {"link":  "https://..."}                                  -- external link
+#   {"spotify_entity": "spotify:track:4uLU6hMCjMI75M1A2tKUQC"}  -- Spotify card
+#
+# When a spotify_entity is used for a track/album/artist, do NOT also add an
+# image companion with that entity's artwork — the card already renders it.
 segments = [
     ("Introduction",   "segment_01.mp3", []),
     ("Chapter A",      "segment_02.mp3", [
-        {"image": "img_02_a.jpg", "url": "https://example.com/article-1", "title": "Source site"},
-        {"link":  "https://example.org/statement"},
+        {"spotify_entity": "spotify:track:4uLU6hMCjMI75M1A2tKUQC"},
+        {"link":  "https://example.com/article-1"},
     ]),
     ("Chapter B",      "segment_03.mp3", [
-        {"image": "img_03_a.jpg"},
-        {"link":  "https://example.com/article-2"},
+        {"image": "img_03_a.jpg", "url": "https://example.com/article-2", "title": "Source photo"},
     ]),
     ("Sign-off",       "segment_04.mp3", []),
 ]
@@ -315,7 +319,9 @@ for title, audio, companions in segments:
         for i, c in enumerate(companions):
             start = cursor + 500 + i * (slot + 500)
             duration = slot
-            if "image" in c:
+            if "spotify_entity" in c:
+                items.append({"spotify_entity": {"start_time_ms": start, "duration_ms": duration, "uri": c["spotify_entity"]}})
+            elif "image" in c:
                 item = {"image": {"start_time_ms": start, "duration_ms": duration, "image": c["image"]}}
                 if c.get("url"):   item["image"]["url"] = c["url"]
                 if c.get("title"): item["image"]["title"] = c["title"]
@@ -348,7 +354,7 @@ The agent passes `timeline.json` to `save-to-spotify --json timeline set --episo
 6. Agent normalizes: volume levels
 7. Agent gathers companion images: download from source and/or generate with DALL-E/SD
 8. Agent calculates: chapter timestamps from segment durations
-9. Agent builds: timeline.json with chapters + link companions (source URLs) + image companions
+9. Agent builds: timeline.json with chapters + spotify_entity companions + link companions (source URLs) + image companions
 10. Agent saves: save-to-spotify --json upload ...
 11. Agent sets timeline: save-to-spotify --json timeline set ...
 12. Agent polls: episodes status until READY

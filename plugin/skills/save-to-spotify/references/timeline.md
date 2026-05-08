@@ -61,6 +61,8 @@ Rules are checked both client-side and on the backend:
 
 **Preference order:** if the thing you want listeners to open already exists on Spotify, add a `spotify_entity`. Keep `link` for off-Spotify destinations, and include both when you want listeners to have both the Spotify destination and the original source/article.
 
+**No duplicate artwork:** when a `spotify_entity` is present, do NOT add an `image` of the same entity's artwork — the card already renders it. Only pair an `image` with a `spotify_entity` when the image is editorially distinct (chart, infographic, screenshot).
+
 **Image + link default:** if you have a representative image plus one canonical source URL for the same story, prefer one `image` item with `url` set. Use standalone `link` for additional URLs, or when there is no good image. Use standalone `image` only when there is no meaningful destination.
 
 ## Placing companions inside a chapter
