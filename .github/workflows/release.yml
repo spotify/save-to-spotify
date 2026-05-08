@@ -89,7 +89,7 @@ jobs:
           node-version: "22"
 
       - name: Install ClawHub CLI
-        run: npm install -g clawhub@0.12.3 --integrity=sha512-usCq70hOVbIs+DZHj5vN1fU7AzhWvtg9f/QowjqX93WRiD4QZ47qVWqdKRkzwjE5HUcs+Sje+sxxc/5CuTZEUg==
+        run: npm ci --prefix .github/clawhub && echo "$(pwd)/.github/clawhub/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Publish skill to ClawHub
         env:
