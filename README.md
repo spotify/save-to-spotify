@@ -37,6 +37,14 @@ curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --dir ~/.local/bin
 curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --no-skills
 ```
 
+### Skills.sh
+
+Install the agent skill to Claude Code, Cursor, Codex, and 50+ other agents:
+
+```bash
+npx skills add spotify/save-to-spotify
+```
+
 ### Claude Code plugin marketplace
 
 ```
