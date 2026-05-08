@@ -26,3 +26,5 @@ release version:
     git tag v{{ trim_start_matches(version, "v") }}
     git push origin v{{ trim_start_matches(version, "v") }}
 
+clawhub-publish:
+    ./scripts/clawhub-publish

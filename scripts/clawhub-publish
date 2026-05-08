@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Publish the save-to-spotify skill to ClawHub.
+#
+# Usage:
+#   scripts/clawhub-publish
+#
+# Environment overrides:
+#   CLAWHUB_OWNER                  Owner namespace, defaults to "spotify"
+#   CLAWHUB_SKILL_PATH             Skill directory, defaults to plugin/skills/save-to-spotify
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/clawhub-publish [--owner OWNER] [--skill-path PATH]
+
+Publishes the save-to-spotify skill to ClawHub.
+
+Options:
+  --owner OWNER       ClawHub owner namespace. Defaults to CLAWHUB_OWNER or "spotify".
+  --skill-path PATH   Skill directory. Defaults to CLAWHUB_SKILL_PATH or
+                      "plugin/skills/save-to-spotify".
+  -h, --help          Show this help.
+EOF
+}
+
+err() {
+  printf 'Error: %s\n' "$*" >&2
+  exit 1
+}
+
+owner="${CLAWHUB_OWNER:-spotify}"
+skill_path="${CLAWHUB_SKILL_PATH:-plugin/skills/save-to-spotify}"
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --owner)
+      [[ "$#" -ge 2 ]] || err "--owner requires a value"
+      owner="$2"
+      shift 2
+      ;;
+    --skill-path)
+      [[ "$#" -ge 2 ]] || err "--skill-path requires a value"
+      skill_path="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -*)
+      err "unknown option: $1"
+      ;;
+    *)
+      err "unexpected argument: $1"
+      ;;
+  esac
+done
+
+if git_tag="$(git describe --tags --exact-match 2>/dev/null)"; then
+  version="${git_tag#v}"
+else
+  err "HEAD is not exactly on a git tag. Check out a release tag before publishing."
+fi
+
+if ! command -v clawhub >/dev/null 2>&1; then
+  err "clawhub is not installed or not on PATH. Install it first, then rerun this script."
+fi
+
+if [[ ! -d "$skill_path" ]]; then
+  err "skill directory not found: ${skill_path}"
+fi
+
+printf 'Publishing %s@%s to ClawHub owner %s\n' "$skill_path" "$version" "$owner"
+exec clawhub skill publish "$skill_path" --version "$version" --owner "$owner"

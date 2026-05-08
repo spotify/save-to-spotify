@@ -83,3 +83,15 @@ jobs:
           gh release create "$TAG" dist/*.zip dist/*.sha256 \
             --title "$TAG" \
             --generate-notes
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Install ClawHub CLI
+        run: npm ci --prefix .github/clawhub && echo "$(pwd)/.github/clawhub/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Publish skill to ClawHub
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: ./scripts/clawhub-publish
