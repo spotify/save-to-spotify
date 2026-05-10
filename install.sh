@@ -185,14 +185,22 @@ install_skills() {
   info "Installed skill to ${canonical}"
 
   local targets=(
-    "${HOME}/.claude/skills/${SKILL_NAME}"
-    "${HOME}/.cursor/skills/${SKILL_NAME}"
-    "${HOME}/.config/opencode/skills/${SKILL_NAME}"
-    "${HOME}/.agents/skills/${SKILL_NAME}"
+    "${HOME}/.claude|${HOME}/.claude/skills/${SKILL_NAME}"
+    "${HOME}/.cursor|${HOME}/.cursor/skills/${SKILL_NAME}"
+    "${HOME}/.config/opencode|${HOME}/.config/opencode/skills/${SKILL_NAME}"
+    "${HOME}/.agents|${HOME}/.agents/skills/${SKILL_NAME}"
   )
 
-  local target
-  for target in "${targets[@]}"; do
+  local entry root target
+  for entry in "${targets[@]}"; do
+    root="${entry%%|*}"
+    target="${entry#*|}"
+
+    if [[ ! -d "$root" ]]; then
+      info "Skipping skill link for ${root} (directory not found)."
+      continue
+    fi
+
     mkdir -p "$(dirname "$target")"
     rm -rf "$target"
     if [[ "$os" == "windows" ]]; then
