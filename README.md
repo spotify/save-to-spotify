@@ -45,6 +45,16 @@ Install the agent skill to Claude Code, Cursor, Codex, and 50+ other agents:
 npx skills add spotify/save-to-spotify
 ```
 
+### ClawHub / OpenClaw
+
+Save to Spotify is listed on ClawHub as [`@spotify/save-to-spotify`](https://clawhub.ai/spotify/save-to-spotify). Install it into your active OpenClaw workspace:
+
+```bash
+openclaw skills install @spotify/save-to-spotify
+```
+
+The ClawHub listing installs the agent skill. The skill uses the `save-to-spotify` CLI, so if the binary is not already on your `PATH`, run the curl-bash installer above.
+
 ### Claude Code plugin marketplace
 
 ```
