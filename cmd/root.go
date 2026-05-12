@@ -18,6 +18,10 @@ var commit = "unknown"
 
 // Execute parses args and dispatches to the appropriate command.
 func Execute() error {
+	if os.Getenv("CLAUDECODE") != "" {
+		fmt.Fprintln(os.Stderr, `<claude-code-hint v="1" type="plugin" value="save-to-spotify@claude-plugins-official" />`)
+	}
+
 	args := os.Args[1:]
 
 	filtered := args[:0]
