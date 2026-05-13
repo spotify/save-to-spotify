@@ -37,6 +37,24 @@ func TestValidateMediaFile(t *testing.T) {
 		t.Error("nonexistent: expected error")
 	}
 
+	// Directory with valid extension
+	dirWithExt := filepath.Join(dir, "fake_audio.mp3")
+	if err := os.Mkdir(dirWithExt, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateMediaFile(dirWithExt); err == nil {
+		t.Error("directory: expected error")
+	}
+
+	// Empty file (0 bytes)
+	emptyFile := filepath.Join(dir, "empty.mp3")
+	if err := os.WriteFile(emptyFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateMediaFile(emptyFile); err == nil {
+		t.Error("empty file: expected error")
+	}
+
 	// Oversized file (use sparse file via seek, now 1 GB limit)
 	bigFile := filepath.Join(dir, "big.mp3")
 	f, err := os.Create(bigFile)

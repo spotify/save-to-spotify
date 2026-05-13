@@ -21,6 +21,14 @@ func validateMediaFile(path string) error {
 		return fmt.Errorf("cannot access file %q: %w", path, err)
 	}
 
+	if info.IsDir() {
+		return fmt.Errorf("%q is a directory, not a file", path)
+	}
+
+	if info.Size() == 0 {
+		return fmt.Errorf("file %q is empty (0 bytes)", path)
+	}
+
 	ext := strings.ToLower(filepath.Ext(path))
 	if !config.AllowedMediaExtensions[ext] {
 		return fmt.Errorf("unsupported file extension %q (allowed: .mp3, .m4a, .mp4, .mov, .wav, .ogg)", ext)

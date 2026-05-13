@@ -98,7 +98,10 @@ func StartCallbackServer(port int, expectedState string) (*http.Server, <-chan C
 		return nil, nil, fmt.Errorf("could not listen on %s: %w", addr, err)
 	}
 
-	srv := &http.Server{Handler: mux}
+	srv := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 
 	go func() {
 		if err := srv.Serve(listener); err != http.ErrServerClosed {
