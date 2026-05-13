@@ -222,27 +222,38 @@ func handleStatus() error {
 		return nil
 	}
 
+	valid := !token.IsExpired()
+
 	if config.JSONMode() {
-		valid := !token.IsExpired()
 		out := authStatusOutput{
 			Authenticated:    true,
 			TokenValid:       valid,
 			ExpiresInSeconds: int(time.Until(token.ExpiresAt).Seconds()),
 			Scopes:           token.Scopes,
 		}
-		return printJSON(out)
+		if err := printJSON(out); err != nil {
+			return err
+		}
+		if !valid {
+			return &SilentError{Code: 1}
+		}
+		return nil
 	}
 
 	path, _ := config.TokenPath()
-	fmt.Println("Status: Authenticated")
+	if valid {
+		fmt.Println("Status: Authenticated")
+	} else {
+		fmt.Println("Status: Token expired")
+	}
 	fmt.Printf("  Token file:  %s\n", path)
 	fmt.Printf("  Scopes:      %s\n", token.Scopes)
-
-	if token.IsExpired() {
-		fmt.Println("  Token:       Expired (will auto-refresh on next use)")
-	} else {
+	if valid {
 		remaining := time.Until(token.ExpiresAt).Round(time.Second)
 		fmt.Printf("  Token:       Valid (expires in %s)\n", remaining)
+	} else {
+		fmt.Println("  Token:       Expired (will auto-refresh on next use)")
+		return &SilentError{Code: 1}
 	}
 
 	return nil

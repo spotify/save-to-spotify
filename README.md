@@ -1,6 +1,6 @@
 # Save to Spotify
 
-A command-line tool for saving audio content to Spotify. Built for agents and automation — generate a daily briefing, language lesson, or meeting recap, then push it to Spotify where it's available alongside your other listening.
+A command-line tool for saving audio content to Spotify. Built for agents and automation, generate a daily briefing, language lesson, or meeting recap, then push it to Spotify where it's available alongside your other listening.
 
 ## Quick Start
 
@@ -33,7 +33,7 @@ curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --version 0.1.1
 # Custom install directory
 curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --dir ~/.local/bin
 
-# Binary only — skip the agent skill
+# Binary only, skip the agent skill
 curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --no-skills
 ```
 
@@ -71,7 +71,7 @@ If you can't run the install script:
    ```bash
    shasum -c save-to-spotify-darwin-arm64-v0.1.1.zip.sha256
    ```
-3. Unzip — you get the binary plus a `skills/save-to-spotify/` tree.
+3. Unzip, you get the binary plus a `skills/save-to-spotify/` tree.
 4. Move the binary to a directory on your `PATH` and `chmod +x` it.
 5. (Optional) Copy `skills/save-to-spotify/` into your agent's skill directory, e.g. `~/.claude/skills/save-to-spotify/` or `~/.cursor/skills/save-to-spotify/`.
 
@@ -87,13 +87,13 @@ sudo mv save-to-spotify /usr/local/bin/
 
 ## Authentication
 
-Log in once — the CLI stores your token and refreshes it automatically.
+Log in once, the CLI stores your token and refreshes it automatically.
 
 ```bash
 # Opens your browser to authorize (default)
 save-to-spotify auth login
 
-# Headless mode — prints a URL to open on any device, then you paste back the redirect URL
+# Headless mode, prints a URL to open on any device, then you paste back the redirect URL
 # Useful for SSH sessions and remote servers
 save-to-spotify auth login --no-browser
 
@@ -104,13 +104,13 @@ save-to-spotify auth status
 save-to-spotify auth logout
 ```
 
-Tokens are stored in `~/.config/save-to-spotify/token.json` (using `$XDG_CONFIG_HOME` if set).
+Tokens are stored in `~/.config/save-to-spotify/token.json` (using `$XDG_CONFIG_HOME` if set). If you use DPoP-bound tokens (the default), the sibling `dpop_key.json` is also required, persist both files in CI/headless environments.
 
 ## Commands
 
 ### upload
 
-The primary command. Uploads a media file and creates an episode in one step. This is the main entrypoint for agents — a single command handles show creation, file upload, and episode metadata.
+The primary command. Uploads a media file and creates an episode in one step. This is the main entrypoint for agents, a single command handles show creation, file upload, and episode metadata.
 
 ```bash
 save-to-spotify upload <file> --title <title> [flags]
@@ -128,7 +128,7 @@ save-to-spotify upload <file> --title <title> [flags]
 If `--show-id` or `--new-show` is not specified, the CLI will use your most recently created show, or create a new one if none exists.
 
 ```bash
-# Save an audio file to Spotify — uses your most recent show (or creates one automatically)
+# Save an audio file to Spotify, uses your most recent show (or creates one automatically)
 save-to-spotify upload ./recap.mp3 --title "Monday Standup Recap"
 
 # Save to a specific show
@@ -184,7 +184,7 @@ save-to-spotify episodes
 # List episodes for a specific show
 save-to-spotify episodes --show-id spotify:show:abc123
 
-# Create an episode (more control than `upload` — same underlying operation)
+# Create an episode (more control than `upload`, same underlying operation)
 save-to-spotify episodes create --title "Sprint Review Notes" --file ./review.mp3
 
 # Check if an episode is ready for playback
@@ -280,7 +280,7 @@ save-to-spotify list shows
 
 ## Agent integration
 
-The CLI saves files to Spotify — it does **not** generate audio. Use TTS tools (edge-tts, say, ElevenLabs) to create media first, then upload with this CLI.
+The CLI saves files to Spotify, it does **not** generate audio. Use TTS tools (edge-tts, say, ElevenLabs) to create media first, then upload with this CLI.
 
 You can use **`--json` mode** when calling from an agent. Every command supports it.
 
@@ -304,13 +304,15 @@ save-to-spotify --json timeline set --episode-id <id> --from-file timeline.json
 
 The `episodes status` command supports `--wait` to poll until the episode becomes `READY`. Use `--wait <dur>` or `--wait=<dur>` to override the default 5-minute readiness timeout.
 
-Always check `episodes status` before setting timeline items — episodes need to be `READY` first (poll every 20s, most are ready within a few minutes).
+Always check `episodes status` before setting timeline items, episodes need to be `READY` first (poll every 20s, most are ready within a few minutes).
 
 When using the `--json` flag, errors return `{"error": "message"}`.
 
 ### Headless authentication
 
 Use `--no-browser` for remote/CI environments. The CLI prints a URL that the **user** must open in their browser. Agents cannot complete this step alone. After initial auth, the token refreshes automatically. For fully non-interactive setups, set `SAVE_TO_SPOTIFY_AUTH_TOKEN`.
+
+**CI persistence:** After initial login, persist both `token.json` and `dpop_key.json` from `~/.config/save-to-spotify/` between runs. DPoP-bound refresh tokens (the default) require the key file, without it, refreshes fail with `invalid_request`. Use `save-to-spotify auth status` as a health check (exits non-zero when the token is expired). The top-level `save-to-spotify token` command forces a refresh and prints a valid access token, useful for CI pre-flight checks.
 
 ### Environment variables
 

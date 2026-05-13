@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -10,6 +11,10 @@ import (
 
 func main() {
 	if err := cmd.Execute(); err != nil {
+		var se *cmd.SilentError
+		if errors.As(err, &se) {
+			os.Exit(se.Code)
+		}
 		if config.JSONMode() {
 			fmt.Printf(`{"error":%q}`+"\n", err.Error())
 		} else {
