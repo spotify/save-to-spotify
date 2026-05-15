@@ -104,7 +104,7 @@ save-to-spotify auth status
 save-to-spotify auth logout
 ```
 
-Tokens are stored in `~/.config/save-to-spotify/token.json` (using `$XDG_CONFIG_HOME` if set). If you use DPoP-bound tokens (the default), the sibling `dpop_key.json` is also required, persist both files in CI/headless environments.
+Tokens are stored in `~/.config/save-to-spotify/token.json` (using `$XDG_CONFIG_HOME` if set). If you use DPoP-bound tokens (the default), the sibling `dpop_key.json` is also required. For CI and headless environments, see the [CI / Automation guide](docs/ci-automation.md).
 
 ## Commands
 
@@ -278,47 +278,16 @@ save-to-spotify list shows
 | `--json` | Output results as JSON (for scripting and automation) |
 | `--timeout <duration>` | API request timeout (default: `30s`, e.g. `1m`, `90s`) |
 
-## Agent integration
+## Documentation
 
-The CLI saves files to Spotify, it does **not** generate audio. Use TTS tools (edge-tts, say, ElevenLabs) to create media first, then upload with this CLI.
+- [Agent integration](docs/agent-integration.md) — JSON mode, typical workflow, error handling
+- [CI / Automation](docs/ci-automation.md) — GitHub Actions setup, headless auth, credential persistence
 
-You can use **`--json` mode** when calling from an agent. Every command supports it.
-
-```bash
-save-to-spotify --json upload ./recap.mp3 --title "Standup Recap" | jq -r .episode_uri
-save-to-spotify --json shows | jq '.shows[].title'
-```
-
-### Typical workflow
-
-```bash
-save-to-spotify --json auth status
-save-to-spotify --json shows  # list first, then decide with the user whether to reuse or create
-save-to-spotify --json shows create --title "My Show"
-save-to-spotify --json upload episode.mp3 --title "Ep 1" --show-id <id>
-save-to-spotify --json episodes status <episode_id>    # poll until READY
-save-to-spotify --json timeline set --episode-id <id> --from-file timeline.json
-```
-
-### Episode status and error handling
-
-The `episodes status` command supports `--wait` to poll until the episode becomes `READY`. Use `--wait <dur>` or `--wait=<dur>` to override the default 5-minute readiness timeout.
-
-Always check `episodes status` before setting timeline items, episodes need to be `READY` first (poll every 20s, most are ready within a few minutes).
-
-When using the `--json` flag, errors return `{"error": "message"}`.
-
-### Headless authentication
-
-Use `--no-browser` for remote/CI environments. The CLI prints a URL that the **user** must open in their browser. Agents cannot complete this step alone. After initial auth, the token refreshes automatically. For fully non-interactive setups, set `SAVE_TO_SPOTIFY_AUTH_TOKEN`.
-
-**CI persistence:** After initial login, persist both `token.json` and `dpop_key.json` from `~/.config/save-to-spotify/` between runs. DPoP-bound refresh tokens (the default) require the key file, without it, refreshes fail with `invalid_request`. Use `save-to-spotify auth status` as a health check (exits non-zero when the token is expired). The top-level `save-to-spotify token` command forces a refresh and prints a valid access token, useful for CI pre-flight checks.
-
-### Environment variables
+## Environment variables
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `SAVE_TO_SPOTIFY_AUTH_TOKEN` | Override the Bearer token (no auto-refresh) | — |
+| `SAVE_TO_SPOTIFY_AUTH_TOKEN` | Bearer token override (expires in ~1 hour, no auto-refresh — see [CI guide](docs/ci-automation.md)) | — |
 | `SAVE_TO_SPOTIFY_BACKEND_URL` | Override the backend API URL | `https://saveto.spotify.com` |
 | `SAVE_TO_SPOTIFY_TIMEOUT` | API request timeout (e.g. `30s`, `2m`) | `30s` |
 | `SAVE_TO_SPOTIFY_CLIENT_ID` | OAuth client ID override | built-in |
