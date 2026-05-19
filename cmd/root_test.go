@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -163,4 +164,58 @@ func TestShouldStartUpdateCheckDisabledByEnv(t *testing.T) {
 	if got := shouldStartUpdateCheck([]string{"upload"}); got {
 		t.Fatal("shouldStartUpdateCheck should be false when disabled by env var")
 	}
+}
+
+func TestPluginHintEmittedWhenCLAUDECODE(t *testing.T) {
+	t.Setenv("CLAUDECODE", "1")
+
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	os.Args = []string{"save-to-spotify", "version"}
+	_ = Execute()
+
+	w.Close()
+	os.Stderr = old
+
+	buf := make([]byte, 4096)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	want := `<claude-code-hint v="1" type="plugin" value="save-to-spotify@claude-plugins-official" />`
+	if !containsLine(output, want) {
+		t.Errorf("stderr should contain plugin hint line\ngot: %s", output)
+	}
+}
+
+func TestPluginHintNotEmittedWithoutCLAUDECODE(t *testing.T) {
+	t.Setenv("CLAUDECODE", "")
+
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	os.Args = []string{"save-to-spotify", "version"}
+	_ = Execute()
+
+	w.Close()
+	os.Stderr = old
+
+	buf := make([]byte, 4096)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	if strings.Contains(output, "claude-code-hint") {
+		t.Errorf("stderr should not contain plugin hint when CLAUDECODE is unset\ngot: %s", output)
+	}
+}
+
+func containsLine(s, substr string) bool {
+	for _, line := range strings.Split(s, "\n") {
+		if strings.TrimSpace(line) == substr {
+			return true
+		}
+	}
+	return false
 }
