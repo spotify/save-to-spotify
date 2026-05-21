@@ -53,7 +53,7 @@ Pre-designed base artwork with Pillow typography. No overlay needed. 20 variants
 
 Fetch a topic-matched photo from Openverse (no API key required, anon: 100/day, 5/hr).
 
-**Source:** `https://api.openverse.org/v1/images/?q={query}&page_size=5&aspect_ratio=square&license=cc0`
+**Source:** `https://api.openverse.org/v1/images/?q={query}&page_size=5&aspect_ratio=square&license=cc0&extension=jpg`
 
 **Query construction:** transform topic into concrete search terms:
 
@@ -220,7 +220,7 @@ def strong_overlay(img):
 
 def fetch_openverse(query):
     import json
-    url = f"https://api.openverse.org/v1/images/?q={query.replace(' ', '+')}&page_size=5&aspect_ratio=square&license=cc0"
+    url = f"https://api.openverse.org/v1/images/?q={query.replace(' ', '+')}&page_size=5&aspect_ratio=square&license=cc0&extension=jpg"
     req = urllib.request.Request(url, headers={"User-Agent": "save-to-spotify/1.0"})
     data = json.loads(urllib.request.urlopen(req).read())
     for img in data.get("results", []):
