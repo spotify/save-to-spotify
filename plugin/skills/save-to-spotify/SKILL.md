@@ -22,7 +22,7 @@ These files cover the detailed rules. Load the one you need — don't inline the
 - [references/cli-usage.md](references/cli-usage.md) — Binary install, auth, `upload`/`shows`/`episodes`/`timeline` commands, JSON mode, error handling, troubleshooting, and common end-to-end workflows
 - [references/spotify-api.md](references/spotify-api.md) — Using `developer.spotify.com/llms.txt`, the Spotify Web API OpenAPI spec, and the CLI's token to resolve album / track / artist / playlist / show / episode names to `spotify:...` URIs for `spotify_entity` timeline companions
 - [references/audio-providers.md](references/audio-providers.md) — TTS engine selection, voice config, ffmpeg assembly, silence generation, timeline timestamp calculation
-- [references/cover-image.md](references/cover-image.md) — Cover image paths (user-provided, AI-generated, CDN artwork, stock + composite, gradient), typography rules, font & RTL support, Pillow compositing recipe
+- [references/cover-image.md](references/cover-image.md) — Cover image paths (user-provided, AI-generated, CDN artwork, stock), typography rules, font & RTL, Pillow compositing recipe
 - [references/timeline.md](references/timeline.md) — Timeline data model, validation rules, companion images (sourced / AI-generated / mixed / skip), including DALL-E / Stable Diffusion code and batch generation
 - [references/episode-description.md](references/episode-description.md) — HTML description format, Python builder from `timeline.json`, formatting rules
 - [references/content-quality.md](references/content-quality.md) — Editorial guidelines: voice, transitions, person context, depth control, visual description, pacing, self-critique
