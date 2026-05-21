@@ -8,13 +8,10 @@
 
 1. **User-provided** — resize to 1400x1400.
 2. **AI-generated** — default when image generation tools are available.
-3. **CDN artwork** — preferred fallback. Always available, always legible.
-4. **Stock + composite** — Openverse photo with strong overlay.
-5. **Gradient** — last resort. Uses a CDN image as background, not a plain colour.
+3. **CDN artwork** — default fallback. Always available, always legible.
+4. **Stock + composite** — Openverse CC0 photo with strong overlay.
 
-**Fallthrough:** AI fails → CDN → Stock (Openverse → Picsum) → Gradient. Gradient cannot fail.
-
-**Default background:** When no user or AI image is available, always use a CDN image (`uts-{01..20}.png`) as the base. Never render a cover with only a solid colour or plain gradient — CDN artwork is always available.
+**Fallthrough:** AI fails → CDN → Stock (Openverse) → CDN. CDN is the terminal fallback — it cannot fail.
 
 ### Path 1: User-provided
 
@@ -65,13 +62,9 @@ Fetch a topic-matched photo from Openverse (no API key required, anon: 100/day, 
 
 **Selection:** first result ≥800x800. Avoid images with text, logos, or people as primary subject. All results CC0 (public domain).
 
-**Fallback:** if Openverse fails, use Picsum (`https://picsum.photos/seed/{topic_slug}/1400/1400`).
+**Fallback:** if Openverse fails, fall back to CDN (Path 3).
 
 **Treatment:** crop to 1400x1400, apply **strong overlay** (bottom 60%, max alpha 230).
-
-### Path 5: Gradient (last resort)
-
-Falls back to a CDN image as background (same as Path 3). If CDN is also unreachable, generate a Pillow gradient. **Palette direction:** lighter top, darker bottom (text sits at bottom, must be dark there). A plain gradient should only appear when all network requests have failed.
 
 ## Typography
 
@@ -119,7 +112,6 @@ All OFL-licensed Google Fonts. Downloaded and cached on first use (`~/.cache/sav
 | AI-generated | Prompt reserves negative space. No overlay. |
 | CDN artwork | Built-in legibility. No overlay. |
 | Stock / User-provided | **Strong overlay: bottom 60%, alpha 0→230.** |
-| Gradient | Darker bottom provides contrast. No overlay. |
 
 ## Pillow compositing recipe
 
@@ -228,22 +220,6 @@ def fetch_openverse(query):
             return img["url"]
     return None
 
-PALETTES = [
-    ((40,60,90),(10,10,30)), ((70,45,80),(20,12,25)),
-    ((30,80,70),(5,20,20)),  ((80,55,30),(25,18,8)),
-    ((55,55,65),(15,15,18)), ((75,30,30),(18,6,6)),
-    ((35,70,45),(6,18,10)),  ((70,70,70),(20,20,20)),
-]
-
-def gradient_bg(title):
-    h = int(hashlib.md5(title.encode()).hexdigest(), 16)
-    top, bot = PALETTES[h % len(PALETTES)]
-    img = Image.new("RGB", (CANVAS, CANVAS))
-    d = ImageDraw.Draw(img)
-    for y in range(CANVAS):
-        t = y / CANVAS
-        d.line([(0, y), (CANVAS, y)], fill=tuple(int(top[i]+(bot[i]-top[i])*t) for i in range(3)))
-    return img
 ```
 
 ## QA checklist
@@ -252,7 +228,7 @@ Before passing any cover to `--image`, verify:
 
 - **Format:** JPG/PNG, <1 MB, exactly 1400x1400.
 - **Typography:** present, ≤3 lines, correct font/alignment per script, white, 64px margins, lower 50% only.
-- **Overlay:** applied on stock/user paths (60%, alpha 230). No overlay on AI/CDN/gradient.
+- **Overlay:** applied on stock/user paths (60%, alpha 230). No overlay on AI/CDN.
 - **AI path:** prompt was agent-constructed, no faces/text/logos in image.
 - **Stock:** CC0 only, no text/logos/people in source.
 
