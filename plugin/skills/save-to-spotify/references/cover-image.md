@@ -9,7 +9,7 @@
 1. **User-provided** — resize to 1400x1400, apply strong overlay, add typography (unless user opts out).
 2. **AI-generated** — default when image generation tools are available. No overlay (prompt reserves negative space).
 3. **CDN artwork** — default fallback. No overlay (built-in legibility). Always available.
-4. **Stock + composite** — Openverse CC0 JPG with strong overlay.
+4. **Stock + composite** — Picsum photo with strong overlay.
 
 **Fallthrough:** AI fails → Stock (Openverse) → CDN. CDN is the terminal fallback — it cannot fail.
 
@@ -45,17 +45,13 @@ Pre-designed base artwork with Pillow typography. No overlay needed. 20 variants
 
 ### Path 4: Stock + composite
 
-Fetch a topic-matched CC0 JPG from Openverse (no API key required, anon: 100/day, 5/hr).
+Fetch a random photo from Picsum (no API key, no rate limit, no licensing concerns).
 
-**Source:** `https://api.openverse.org/v1/images/?q={query}&page_size=5&aspect_ratio=square&license=cc0&extension=jpg`
+**Source:** `https://picsum.photos/seed/{topic_slug}/1400/1400` — seeded by topic slug for deterministic results per topic.
 
-**Query construction:** transform topic into concrete search terms (e.g., "Yoga" → `yoga mat minimal`, "Daily news" → `newspaper morning light`).
+**Fallback:** if Picsum fails, fall back to CDN (Path 3).
 
-**Selection:** first result ≥800x800. Avoid images with text, logos, or people as primary subject.
-
-**Fallback:** if Openverse fails, fall back to CDN (Path 3).
-
-**Treatment:** crop to 1400x1400, apply strong overlay (bottom 60%, alpha 0→230).
+**Treatment:** apply strong overlay (bottom 60%, alpha 0→230), then typography.
 
 ## Typography
 
@@ -189,4 +185,4 @@ def strong_overlay(img):
 
 ## QA checklist
 
-Verify: 1400x1400 JPG/PNG <1 MB, typography present with correct font/alignment/white/margins, overlay on stock/user only, no faces/text/logos in AI output, CC0 for stock. If any check fails, fall through to next path.
+Verify: 1400x1400 JPG/PNG <1 MB, typography present with correct font/alignment/white/margins, overlay on stock/user only, no faces/text/logos in AI output. If any check fails, fall through to next path.
