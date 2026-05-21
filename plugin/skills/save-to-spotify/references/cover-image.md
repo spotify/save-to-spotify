@@ -53,7 +53,7 @@ Pre-designed base artwork with Pillow typography. No overlay needed. 20 variants
 
 Fetch a topic-matched photo from Openverse (no API key required, anon: 100/day, 5/hr).
 
-**Source:** `https://api.openverse.org/v1/images/?q={query}&page_size=5&aspect_ratio=square`
+**Source:** `https://api.openverse.org/v1/images/?q={query}&page_size=5&aspect_ratio=square&license=cc0`
 
 **Query construction:** transform topic into concrete search terms:
 
@@ -63,7 +63,7 @@ Fetch a topic-matched photo from Openverse (no API key required, anon: 100/day, 
 | "Yoga" | `yoga mat minimal` |
 | "Arsenal winning PL" | `football stadium red` |
 
-**Selection:** first result ≥800x800. Avoid images with text, logos, or people as primary subject. All results CC-licensed or public domain.
+**Selection:** first result ≥800x800. Avoid images with text, logos, or people as primary subject. All results CC0 (public domain).
 
 **Fallback:** if Openverse fails, use Picsum (`https://picsum.photos/seed/{topic_slug}/1400/1400`).
 
@@ -220,7 +220,7 @@ def strong_overlay(img):
 
 def fetch_openverse(query):
     import json
-    url = f"https://api.openverse.org/v1/images/?q={query.replace(' ', '+')}&page_size=5&aspect_ratio=square"
+    url = f"https://api.openverse.org/v1/images/?q={query.replace(' ', '+')}&page_size=5&aspect_ratio=square&license=cc0"
     req = urllib.request.Request(url, headers={"User-Agent": "save-to-spotify/1.0"})
     data = json.loads(urllib.request.urlopen(req).read())
     for img in data.get("results", []):
@@ -254,6 +254,6 @@ Before passing any cover to `--image`, verify:
 - **Typography:** present, ≤3 lines, correct font/alignment per script, white, 64px margins, lower 50% only.
 - **Overlay:** applied on stock/user paths (60%, alpha 230). No overlay on AI/CDN/gradient.
 - **AI path:** prompt was agent-constructed, no faces/text/logos in image.
-- **Stock:** CC-licensed, no text/logos/people in source.
+- **Stock:** CC0 only, no text/logos/people in source.
 
 If any check fails, fall through to next path.
