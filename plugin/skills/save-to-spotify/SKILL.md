@@ -90,8 +90,8 @@ At minimum, always confirm these before producing anything:
 5. **Cover image style** — How to generate the cover image. Present these options (see [references/cover-image.md](references/cover-image.md) for full details):
    - **User-provided** — the user supplies their own image file
    - **AI-generated** (default when image tools available) — unique image themed to the episode content, text composited with Pillow
-   - **CDN artwork** (default fallback) — pre-designed abstract illustration from the STS CDN with Pillow typography. Always available, always legible
    - **Stock + composite** — Picsum photo with strong overlay
+   - **CDN artwork** (terminal fallback) — pre-designed abstract illustration from the STS CDN with Pillow typography. Always available
 6. **Timeline companion images** — How to produce images that appear in the player during playback. Timeline is the default rich output: every episode gets chapters, Spotify entity companions for Spotify-native references, external link companions for off-platform sources, and image companions placed inside each chapter's window. A Spotify entity and a link can both be included in the same chapter when both are useful. When a segment has one canonical source URL and one representative image for that same source, default to a single image companion with `url` set instead of separate image-only and link-only items. For images, present these options:
    - **AI-generated** — DALL-E, Stable Diffusion, or the user's preferred image model, from a themed prompt per segment. Best when sources lack usable imagery (meditation, fiction, study, abstract topics) or when the user wants a consistent visual style
    - **Mixed (recommended default)** — sourced where a natural image is available, AI-generated fill for segments that lack one. Aim for at least one image per chapter

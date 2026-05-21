@@ -6,20 +6,24 @@
 
 ## Paths (priority order)
 
-1. **User-provided** — resize to 1400x1400, apply strong overlay, add typography (unless user opts out).
-2. **AI-generated** — default when image generation tools are available. No overlay (prompt reserves negative space).
-3. **CDN artwork** — default fallback. No overlay (built-in legibility). Always available.
-4. **Stock + composite** — Picsum photo with strong overlay.
+1. **User-provided** — only when user supplies an image file. Skip otherwise. Resize to 1400x1400, apply strong overlay, add typography (unless user opts out).
+2. **AI-generated** — default when a known image generation API is available (DALL-E, Stable Diffusion). Never use unvetted services. No overlay (prompt reserves negative space).
+3. **Stock + composite** — Picsum photo with strong overlay.
+4. **CDN artwork** — terminal fallback. No overlay (built-in legibility). Always available, cannot fail.
 
-**Fallthrough:** AI fails → Stock (Openverse) → CDN. CDN is the terminal fallback — it cannot fail.
+**Fallthrough:** AI fails → Stock (Picsum) → CDN. CDN is the terminal fallback.
 
 ### Path 1: User-provided
 
+**Skip this path entirely if the user did not provide an image file.** Do not generate a substitute image — proceed to Path 2.
+
 Accept JPG/PNG at any aspect ratio. Reject if below 600x600 or corrupted. Crop to square, resize to 1400x1400, compress to <1 MB (JPG 90%). Apply strong overlay, then add typography unless user opts out.
 
-**Never:** apply filters, AI enhancement, or override with an agent-generated image.
+**Never:** apply filters, AI enhancement, generate a stand-in image, or override with an agent-generated image.
 
 ### Path 2: AI-generated (default)
+
+**Only use known image generation APIs:** DALL-E (OpenAI), Stable Diffusion, or Midjourney. Never use unvetted services (e.g., pollinations.ai) — quality is unreliable and licensing unclear. If no known API key is available, skip to Path 3.
 
 **Never render text with the model** — composite with Pillow afterwards.
 
@@ -37,21 +41,21 @@ Example: topic "Weekly Stockholm news briefing" → `"Minimalist illustration of
 
 See [timeline.md](timeline.md) for DALL-E / Stable Diffusion code examples.
 
-### Path 3: CDN artwork (default fallback)
-
-Pre-designed base artwork with Pillow typography. No overlay needed. 20 variants (`uts-01.png` through `uts-20.png`), selected by hash of show name.
-
-**CDN endpoint:** `https://save-to-spotify.spotifycdn.com/assets/uts-{01..20}.png`
-
-### Path 4: Stock + composite
+### Path 3: Stock + composite
 
 Fetch a random photo from Picsum (no API key, no rate limit, no licensing concerns).
 
 **Source:** `https://picsum.photos/seed/{topic_slug}/1400/1400` — seeded by topic slug for deterministic results per topic.
 
-**Fallback:** if Picsum fails, fall back to CDN (Path 3).
+**Fallback:** if Picsum fails, fall back to CDN (Path 4).
 
 **Treatment:** apply strong overlay (bottom 60%, alpha 0→230), then typography.
+
+### Path 4: CDN artwork (terminal fallback)
+
+Pre-designed base artwork with Pillow typography. No overlay needed. 20 variants (`uts-01.png` through `uts-20.png`), selected by hash of show name. Always available, cannot fail.
+
+**CDN endpoint:** `https://save-to-spotify.spotifycdn.com/assets/uts-{01..20}.png`
 
 ## Typography
 
