@@ -22,7 +22,7 @@ These files cover the detailed rules. Load the one you need — don't inline the
 - [references/cli-usage.md](references/cli-usage.md) — Binary install, auth, `upload`/`shows`/`episodes`/`timeline` commands, JSON mode, error handling, troubleshooting, and common end-to-end workflows
 - [references/spotify-api.md](references/spotify-api.md) — Using `developer.spotify.com/llms.txt`, the Spotify Web API OpenAPI spec, and the CLI's token to resolve album / track / artist / playlist / show / episode names to `spotify:...` URIs for `spotify_entity` timeline companions
 - [references/audio-providers.md](references/audio-providers.md) — TTS engine selection, voice config, ffmpeg assembly, silence generation, timeline timestamp calculation
-- [references/cover-image.md](references/cover-image.md) — Cover image options (AI-generated, Pillow, user-provided), design rules, background-image sources, full Pillow compositing recipe
+- [references/cover-image.md](references/cover-image.md) — Cover image paths (user-provided, AI-generated, CDN artwork, stock + composite, gradient), typography rules, font & RTL support, Pillow compositing recipe
 - [references/timeline.md](references/timeline.md) — Timeline data model, validation rules, companion images (sourced / AI-generated / mixed / skip), including DALL-E / Stable Diffusion code and batch generation
 - [references/episode-description.md](references/episode-description.md) — HTML description format, Python builder from `timeline.json`, formatting rules
 - [references/content-quality.md](references/content-quality.md) — Editorial guidelines: voice, transitions, person context, depth control, visual description, pacing, self-critique
@@ -87,10 +87,12 @@ At minimum, always confirm these before producing anything:
 2. **Language** — What language the episode should be in (do not assume from the source language)
 3. **Length** — How long the episode should be
 4. **TTS voice** — Which voice to use (offer options from [references/audio-providers.md](references/audio-providers.md))
-5. **Cover image style** — How to generate the cover image. Present these options:
-   - **AI-generated (DALL-E)** — high quality, unique image themed to the episode content. Requires OpenAI API key. Best for standalone episodes or shows where the cover matters
-   - **AI-generated (other)** — Stable Diffusion, Midjourney, or other image generators the user prefers
+5. **Cover image style** — How to generate the cover image. Present these options (see [references/cover-image.md](references/cover-image.md) for full details):
    - **User-provided** — the user supplies their own image file
+   - **AI-generated** (default when image tools available) — unique image themed to the episode content, text composited with Pillow
+   - **CDN artwork** (preferred fallback) — pre-designed abstract illustration from the STS CDN with Pillow typography. Always available, always legible
+   - **Stock + composite** — Openverse photo with strong overlay
+   - **Gradient** — last resort, Pillow-generated
 6. **Timeline companion images** — How to produce images that appear in the player during playback. Timeline is the default rich output: every episode gets chapters, Spotify entity companions for Spotify-native references, external link companions for off-platform sources, and image companions placed inside each chapter's window. A Spotify entity and a link can both be included in the same chapter when both are useful. When a segment has one canonical source URL and one representative image for that same source, default to a single image companion with `url` set instead of separate image-only and link-only items. For images, present these options:
    - **AI-generated** — DALL-E, Stable Diffusion, or the user's preferred image model, from a themed prompt per segment. Best when sources lack usable imagery (meditation, fiction, study, abstract topics) or when the user wants a consistent visual style
    - **Mixed (recommended default)** — sourced where a natural image is available, AI-generated fill for segments that lack one. Aim for at least one image per chapter

@@ -1,123 +1,259 @@
 # Cover Image
 
-**Every show and every episode MUST have a cover image.** Without it, the content looks unfinished in Spotify. Never save without `--image`.
+**Every show & every episode MUST have a cover image.** Never save without `--image`.
 
-**Format:** JPG or PNG, max 1 MB, square 1400x1400. Add on save with `--image cover.jpg`.
+**Format:** JPG or PNG, max 1 MB, 1400x1400 square.
 
-Use the approach the user chose during the interview. If they didn't specify, default to AI-generated.
+## Paths (priority order)
 
-## Option 1: AI-generated (recommended)
+1. **User-provided** — resize to 1400x1400.
+2. **AI-generated** — default when image generation tools are available.
+3. **CDN artwork** — preferred fallback. Always available, always legible.
+4. **Stock + composite** — Openverse photo with strong overlay.
+5. **Gradient** — last resort. Uses a CDN image as background, not a plain colour.
 
-Generate a themed illustration using DALL-E or another image generator. This produces unique, visually exciting covers.
+**Fallthrough:** AI fails → CDN → Stock (Openverse → Picsum) → Gradient. Gradient cannot fail.
 
-```
-Prompt pattern: "A bold, minimal illustration of [episode theme],
-square format, vibrant colors, no text, suitable as a podcast cover image"
-```
+**Default background:** When no user or AI image is available, always use a CDN image (`uts-{01..20}.png`) as the base. Never render a cover with only a solid colour or plain gradient — CDN artwork is always available.
 
-After generating the image, use Pillow to add the title text on top (AI text rendering is unreliable — always add text with Pillow). See "Pillow compositing recipe" below for the full code, plus [timeline.md](timeline.md) for DALL-E and Stable Diffusion code examples.
+### Path 1: User-provided
 
-## Option 2: Pillow compositing (fast fallback)
+Accept JPG/PNG at any aspect ratio. Reject if below 600x600 or corrupted. Crop to square, resize to 1400x1400, compress to <1 MB (JPG 90%). Add typography unless user opts out of text.
 
-Overlay text on a background image. Good for recurring episodes where speed matters more than uniqueness. See "Pillow compositing recipe" below for the full code example.
+**Never:** apply filters, AI enhancement, or override with an agent-generated image.
 
-**Background image — license and use a free stock photo.** This produces much better results than source content images or solid colors. Search for a photo that matches the episode mood or topic:
+### Path 2: AI-generated (default)
 
-- **Unsplash** -- `https://api.unsplash.com/search/photos?query=[topic]&orientation=squarish` (free, requires API key from unsplash.com/developers)
-- **Pexels** -- `https://api.pexels.com/v1/search?query=[topic]&orientation=square` (free, requires API key from pexels.com/api)
-- **Picsum** -- `https://picsum.photos/1400/1400` (random, no key needed — useful as a last-resort fallback)
+**Never render text with the model** — composite with Pillow afterwards.
 
-Pick a photo with strong visual interest (landscapes, textures, bold colors). Avoid generic office/stock-people images. Use licensed sources only. The photo does the heavy lifting — text is just a label on top.
+**Prompt construction:** transform the user's topic into a specific visual concept. Never pass the raw topic.
 
-## Option 3: User-provided
+| User topic | Agent prompt |
+| --- | --- |
+| "Daily podcast about cats" | "Editorial photograph of a single tabby cat curled asleep on a linen cushion, soft window light, muted warm palette, square composition, negative space in lower third, no text, no logos" |
+| "Weekly Stockholm news briefing" | "Minimalist illustration of a Stockholm rooftop skyline at dusk, muted blue-grey palette, square composition, negative space in lower third, no text, no logos" |
 
-The user supplies their own image. Resize to 1400x1400 square if needed.
+**Every prompt must include:** a specific concrete subject (not a concept), a composition direction (top-down/close-up/wide), a palette descriptor, "square composition", "negative space in lower third", "no text, no logos".
 
-## Design rules (all options)
+**Style:** photorealistic or clean illustration only. No collage, 3D renders, faces, or AI-generated likenesses. Silhouettes/hands/anonymous angles OK.
 
-**Layout:**
-- **Maximum 2 lines of text** — show name and date/subtitle. Less is more
-- Place text at the **bottom** of the image with a gradient overlay fading from transparent (top) to dark (bottom). This looks more polished than a rectangular panel
-- Alternatively, use a blurred strip or semi-transparent bar behind the text — never darken the entire image
-- Leave breathing room — don't push text to the edges. Padding of 40-60px from the sides
+**Never produce:** podcast-meta imagery (mics, headphones), stock cliches (handshakes, lightbulbs), neon/HDR, baked-in text or logos.
 
-**Typography:**
-- **Minimum 100pt for the title** — it must be legible at 170x170px thumbnail size
-- **No thin or light font weights** — always bold, heavy, or black
-- Prefer expressive fonts over Helvetica. On macOS: `SF Pro Display Bold`, `Futura Bold`, `Avenir Black`, `Impact`. Pick a font that matches the mood of the content
-- **High contrast** — white or bright text on dark backgrounds. Add a subtle drop shadow (`textcolor=(255,255,255)` with a black shadow offset by 2-3px) for extra pop
-- Subtitle/date in a smaller size (40-50pt) and slightly muted color (e.g., `(200, 220, 255)`)
+**Skip AI if:** topic is abstract, involves real named people, refers to events after the model's training cutoff, or user requested otherwise.
 
-**Color:**
-- Let the background photo set the mood — don't fight it with clashing text colors
-- White text works on almost any photo when you have a gradient overlay
-- For a branded look, pick one accent color and use it consistently across episodes
+See [timeline.md](timeline.md) for DALL-E / Stable Diffusion code examples.
+
+### Path 3: CDN artwork (preferred fallback)
+
+Pre-designed base artwork with Pillow typography. No overlay needed. 20 variants (`uts-01.png` through `uts-20.png`), selected by hash of show name.
+
+**CDN endpoint:** `https://save-to-spotify.spotifycdn.com/assets/uts-{01..20}.png`
+
+### Path 4: Stock + composite
+
+Fetch a topic-matched photo from Openverse (no API key required, anon: 100/day, 5/hr).
+
+**Source:** `https://api.openverse.org/v1/images/?q={query}&page_size=5&aspect_ratio=square`
+
+**Query construction:** transform topic into concrete search terms:
+
+| User topic | Search query |
+| --- | --- |
+| "Daily news podcast" | `newspaper morning light` |
+| "Yoga" | `yoga mat minimal` |
+| "Arsenal winning PL" | `football stadium red` |
+
+**Selection:** first result ≥800x800. Avoid images with text, logos, or people as primary subject. All results CC-licensed or public domain.
+
+**Fallback:** if Openverse fails, use Picsum (`https://picsum.photos/seed/{topic_slug}/1400/1400`).
+
+**Treatment:** crop to 1400x1400, apply **strong overlay** (bottom 60%, max alpha 230).
+
+### Path 5: Gradient (last resort)
+
+Falls back to a CDN image as background (same as Path 3). If CDN is also unreachable, generate a Pillow gradient. **Palette direction:** lighter top, darker bottom (text sits at bottom, must be dark there). A plain gradient should only appear when all network requests have failed.
+
+## Typography
+
+**Mandatory** on every cover (unless user opted out in Path 1). Always composited with Pillow. Never rely on AI text rendering.
+
+**Default copy:** show name only. Add date/episode number only to disambiguate >1 episode per day.
+
+### Constraints
+
+- **One label only.** No subtitles, taglines, or descriptors.
+- **Max 3 lines.** If title doesn't fit, shorten: drop articles ("The Daily Stockholm News Briefing" → "Stockholm News Briefing"), use short forms ("The History of the Roman Empire" → "Roman Empire"). Full title preserved in metadata. After saving, surface shortened title to user & offer to regenerate.
+- **No widows.** Don't strand a single short word on its own line.
+
+### Typesetting
+
+- **Fill canvas proportionally.** Longest line spans 80-85% of canvas width (`(CANVAS - 2*MARGIN) * 0.85`). Text block ≤50% of canvas height (`CANVAS - MARGIN - CANVAS // 2` = 636px). Whichever constraint hits first determines size.
+- **Min 100pt** for thumbnail legibility (170x170). Auto-shorten if title can't fit at min size.
+- **Tight leading.** `line_height = font_size * 0.97`.
+- **Bottom-left aligned** (bottom-right for RTL). 64px margin from edges. Text never crosses vertical centre.
+- **Break on meaning.** Keep concepts together. Pick whichever split produces the most balanced line widths.
+
+### Font & RTL
+
+| Script | Font | Alignment |
+| --- | --- | --- |
+| Latin (default) | **Montserrat Bold** | bottom-left |
+| Arabic | **Tajawal Bold** | bottom-right |
+| Hebrew | **Noto Sans Hebrew Bold** | bottom-right |
+
+All OFL-licensed Google Fonts. Downloaded and cached on first use (`~/.cache/save-to-spotify/fonts/`). Bold or heavier only. Never system defaults or decorative fonts.
+
+**RTL detection:** check `unicodedata.bidirectional(ch) in ('R', 'AL', 'AN')`. If any character is RTL, use RTL font and right-alignment.
+
+**No reshaper libraries.** Do NOT use `arabic_reshaper` or `python-bidi` — modern fonts handle shaping natively in Pillow. Reshaper libraries break letter connections.
+
+### Colour & effects
+
+- **White text only.** No accent colours, no exceptions.
+- **No text effects.** No drop shadows, strokes, outlines, glows. Legibility comes from per-path background treatment.
+
+### Background treatment per path
+
+| Path | Treatment |
+| --- | --- |
+| AI-generated | Prompt reserves negative space. No overlay. |
+| CDN artwork | Built-in legibility. No overlay. |
+| Stock / User-provided | **Strong overlay: bottom 60%, alpha 0→230.** |
+| Gradient | Darker bottom provides contrast. No overlay. |
 
 ## Pillow compositing recipe
 
-Treat Pillow compositing as a first-class fallback, not a last-ditch hack. If DALL-E, Stable Diffusion, or stock-image lookup fails mid-session, finish production with a simple Pillow cover image instead of blocking the episode.
-
-Reliable fallback recipe:
-
-- 1400x1400 canvas
-- gradient or two-tone background
-- one simple geometric/illustrative element
-- large bold title at the bottom
-- small subtitle/date line
-- subtle shadow for legibility
-
-### Compositing a cover with gradient overlay
-
-Use a bottom gradient overlay for text — this looks more polished than a rectangular panel:
-
 ```python
 from PIL import Image, ImageDraw, ImageFont
+import os, hashlib, unicodedata, urllib.request
 
-# Load and crop to square 1400x1400
-bg = Image.open('background.jpg').convert('RGB')
-w, h = bg.size
-side = min(w, h)
-bg = bg.crop(((w-side)//2, (h-side)//2, (w+side)//2, (h+side)//2))
-bg = bg.resize((1400, 1400), Image.LANCZOS)
+CANVAS = 1400
+MARGIN = 64
+MAX_TEXT_WIDTH = int((CANVAS - 2 * MARGIN) * 0.85)
+MAX_TEXT_HEIGHT = CANVAS - MARGIN - CANVAS // 2  # 636px
+MIN_FONT_SIZE = 100
+MAX_FONT_SIZE = 400
+LEADING_FACTOR = 0.97
 
-# Bottom gradient overlay (transparent at top, dark at bottom)
-overlay = Image.new('RGBA', bg.size, (0, 0, 0, 0))
-overlay_draw = ImageDraw.Draw(overlay)
-for y in range(700, 1400):
-    alpha = int((y - 700) / 700 * 200)  # fade from 0 to 200
-    overlay_draw.line([(0, y), (1400, y)], fill=(0, 0, 0, alpha))
+FONT_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "save-to-spotify", "fonts")
+FONTS = {
+    "latin":  ("Montserrat-Bold.ttf",       "https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-Bold.ttf"),
+    "arabic": ("Tajawal-Bold.ttf",           "https://raw.githubusercontent.com/google/fonts/main/ofl/tajawal/Tajawal-Bold.ttf"),
+    "hebrew": ("NotoSansHebrew-Bold.ttf",    "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanshebrew/NotoSansHebrew%5Bwght%5D.ttf"),
+}
 
-bg = bg.convert('RGBA')
-bg = Image.alpha_composite(bg, overlay)
-bg = bg.convert('RGB')
+def is_rtl(text):
+    return any(unicodedata.bidirectional(ch) in ('R', 'AL', 'AN') for ch in text)
 
-# Add text — bottom-aligned, bold, high contrast
-draw = ImageDraw.Draw(bg)
-# Prefer expressive fonts: SF Pro Display Bold, Futura Bold, Avenir Black, Impact
-title_font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Futura.ttc", 110)
-sub_font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Futura.ttc", 48)
+def detect_script(title):
+    for ch in title:
+        if '؀' <= ch <= 'ۿ' or 'ݐ' <= ch <= 'ݿ': return "arabic"
+        if '֐' <= ch <= '׿': return "hebrew"
+    return "latin"
 
-# Drop shadow for extra pop
-draw.text((702, 1202), "Show Name", font=title_font, fill=(0, 0, 0, 180), anchor='mb')
-draw.text((700, 1200), "Show Name", font=title_font, fill='white', anchor='mb')
+def get_font_path(title=""):
+    os.makedirs(FONT_CACHE, exist_ok=True)
+    fname, url = FONTS[detect_script(title)]
+    path = os.path.join(FONT_CACHE, fname)
+    if not os.path.exists(path):
+        urllib.request.urlretrieve(url, path)
+    return path
 
-draw.text((700, 1280), "Episode Subtitle — April 2026", font=sub_font, fill=(200, 220, 255), anchor='mb')
+def load_font(size, title=""):
+    return ImageFont.truetype(get_font_path(title), size)
 
-bg.save('cover.jpg', quality=90)
+def measure_line(font, text):
+    b = font.getbbox(text)
+    return b[2] - b[0], b[3] - b[1]
+
+def _split_combos(words, n):
+    if n == 1: yield [words]; return
+    for i in range(1, len(words) - n + 2):
+        for rest in _split_combos(words[i:], n - 1):
+            yield [words[:i]] + rest
+
+def break_lines(title, font):
+    words = title.split()
+    best, best_d = None, float("inf")
+    for n in range(1, min(len(words), 3) + 1):
+        for combo in _split_combos(words, n):
+            lines = [" ".join(p) for p in combo]
+            ws = [measure_line(font, l)[0] for l in lines]
+            if max(ws) > MAX_TEXT_WIDTH: continue
+            d = max(ws) - min(ws)
+            if d < best_d: best_d, best = d, lines
+    return best or [title]
+
+def fit_title(title):
+    for sz in range(MAX_FONT_SIZE, MIN_FONT_SIZE - 1, -2):
+        font = load_font(sz, title)
+        lines = break_lines(title, font)
+        if len(lines) > 3: continue
+        if max(measure_line(font, l)[0] for l in lines) > MAX_TEXT_WIDTH: continue
+        lh = int(sz * LEADING_FACTOR)
+        total = lh * (len(lines) - 1) + font.getbbox(lines[-1])[3]
+        if total > MAX_TEXT_HEIGHT: continue
+        return font, lines, sz
+    f = load_font(MIN_FONT_SIZE, title)
+    return f, break_lines(title, f), MIN_FONT_SIZE
+
+def composite_title(img, title):
+    draw = ImageDraw.Draw(img)
+    font, lines, sz = fit_title(title)
+    lh = int(sz * LEADING_FACTOR)
+    total = lh * (len(lines) - 1) + font.getbbox(lines[-1])[3]
+    y = max(CANVAS - MARGIN - total, CANVAS // 2)
+    rtl = is_rtl(title)
+    for line in lines:
+        x = CANVAS - MARGIN - measure_line(font, line)[0] if rtl else MARGIN
+        draw.text((x, y), line, font=font, fill=(255, 255, 255))
+        y += lh
+    return img
+
+def strong_overlay(img):
+    ov = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(ov)
+    start = int(CANVAS * 0.40)
+    for y in range(start, CANVAS):
+        d.line([(0, y), (CANVAS, y)], fill=(0, 0, 0, int((y - start) / (CANVAS - start) * 230)))
+    return Image.alpha_composite(img.convert("RGBA"), ov).convert("RGB")
+
+def fetch_openverse(query):
+    import json
+    url = f"https://api.openverse.org/v1/images/?q={query.replace(' ', '+')}&page_size=5&aspect_ratio=square"
+    req = urllib.request.Request(url, headers={"User-Agent": "save-to-spotify/1.0"})
+    data = json.loads(urllib.request.urlopen(req).read())
+    for img in data.get("results", []):
+        if img.get("width", 0) >= 800 and img.get("height", 0) >= 800:
+            return img["url"]
+    return None
+
+PALETTES = [
+    ((40,60,90),(10,10,30)), ((70,45,80),(20,12,25)),
+    ((30,80,70),(5,20,20)),  ((80,55,30),(25,18,8)),
+    ((55,55,65),(15,15,18)), ((75,30,30),(18,6,6)),
+    ((35,70,45),(6,18,10)),  ((70,70,70),(20,20,20)),
+]
+
+def gradient_bg(title):
+    h = int(hashlib.md5(title.encode()).hexdigest(), 16)
+    top, bot = PALETTES[h % len(PALETTES)]
+    img = Image.new("RGB", (CANVAS, CANVAS))
+    d = ImageDraw.Draw(img)
+    for y in range(CANVAS):
+        t = y / CANVAS
+        d.line([(0, y), (CANVAS, y)], fill=tuple(int(top[i]+(bot[i]-top[i])*t) for i in range(3)))
+    return img
 ```
 
-### Resizing with ffmpeg
+## QA checklist
 
-```shell
-# Resize cover image to 1400x1400 square
-ffmpeg -i cover.png -vf "scale=1400:1400" cover_resized.jpg
-```
+Before passing any cover to `--image`, verify:
 
-### Typography minimums
+- **Format:** JPG/PNG, <1 MB, exactly 1400x1400.
+- **Typography:** present, ≤3 lines, correct font/alignment per script, white, 64px margins, lower 50% only.
+- **Overlay:** applied on stock/user paths (60%, alpha 230). No overlay on AI/CDN/gradient.
+- **AI path:** prompt was agent-constructed, no faces/text/logos in image.
+- **Stock:** CC-licensed, no text/logos/people in source.
 
-- **At a 1400px canvas** (scale proportionally for other sizes — these are floors, not targets):
-  - Title: **100pt** (≈7% of canvas height) — must survive a 170x170 thumbnail
-  - Subtitle / date line: **40pt** (≈3%) — anything smaller disappears at thumbnail size
-  - Subtitle must be **≥40% of the title size**. If the title is 120pt, the subtitle is ≥48pt.
-- **Don't auto-shrink to fit** a long title. Truncate, abbreviate, or wrap to 2 lines before dropping below the minimum. Never use `textlength` / `getbbox` loops that shrink the font to fit.
-- **Bold, heavy, or black weights only** — no thin or light fonts.
+If any check fails, fall through to next path.
