@@ -22,7 +22,7 @@ These files cover the detailed rules. Load the one you need — don't inline the
 - [references/cli-usage.md](references/cli-usage.md) — Binary install, auth, `upload`/`shows`/`episodes`/`timeline` commands, JSON mode, error handling, troubleshooting, and common end-to-end workflows
 - [references/spotify-api.md](references/spotify-api.md) — Using `developer.spotify.com/llms.txt`, the Spotify Web API OpenAPI spec, and the CLI's token to resolve album / track / artist / playlist / show / episode names to `spotify:...` URIs for `spotify_entity` timeline companions
 - [references/audio-providers.md](references/audio-providers.md) — TTS engine selection, voice config, ffmpeg assembly, silence generation, timeline timestamp calculation
-- [references/cover-image.md](references/cover-image.md) — Cover image paths (user-provided, AI-generated, CDN artwork, stock), typography rules, font & RTL, Pillow compositing recipe
+- [references/cover-image.md](references/cover-image.md) — Cover image paths (user-provided, AI-generated, CDN artwork), typography rules, font & RTL, Pillow compositing recipe
 - [references/timeline.md](references/timeline.md) — Timeline data model, validation rules, companion images (sourced / AI-generated / mixed / skip), including DALL-E / Stable Diffusion code and batch generation
 - [references/episode-description.md](references/episode-description.md) — HTML description format, Python builder from `timeline.json`, formatting rules
 - [references/content-quality.md](references/content-quality.md) — Editorial guidelines: voice, transitions, person context, depth control, visual description, pacing, self-critique
@@ -90,7 +90,6 @@ At minimum, always confirm these before producing anything:
 5. **Cover image style** — How to generate the cover image. Present these options (see [references/cover-image.md](references/cover-image.md) for full details):
    - **User-provided** — the user supplies their own image file
    - **AI-generated** (default when image tools available) — unique image themed to the episode content, text composited with Pillow
-   - **Stock + composite** — Picsum photo with strong overlay
    - **CDN artwork** (terminal fallback) — pre-designed abstract illustration from the STS CDN with Pillow typography. Always available
 6. **Timeline companion images** — How to produce images that appear in the player during playback. Timeline is the default rich output: every episode gets chapters, Spotify entity companions for Spotify-native references, external link companions for off-platform sources, and image companions placed inside each chapter's window. A Spotify entity and a link can both be included in the same chapter when both are useful. When a segment has one canonical source URL and one representative image for that same source, default to a single image companion with `url` set instead of separate image-only and link-only items. For images, present these options:
    - **AI-generated** — DALL-E, Stable Diffusion, or the user's preferred image model, from a themed prompt per segment. Best when sources lack usable imagery (meditation, fiction, study, abstract topics) or when the user wants a consistent visual style
