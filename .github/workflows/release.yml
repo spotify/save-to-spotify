@@ -23,11 +23,16 @@ jobs:
         with:
           go-version: "1.22"
 
+      - name: Set release version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Verify plugin versions match tag
+        run: python3 scripts/bump-versions.py --check "$VERSION"
+
       - name: Cross-compile all platforms
         run: |
           commit="$(git rev-parse --short HEAD)"
-          version="$(git describe --tags --always 2>/dev/null | sed 's/^v//' || echo "dev")"
-          LDFLAGS="-X github.com/spotify/save-to-spotify/cmd.commit=${commit} -X github.com/spotify/save-to-spotify/cmd.version=${version}"
+          LDFLAGS="-X github.com/spotify/save-to-spotify/cmd.commit=${commit} -X github.com/spotify/save-to-spotify/cmd.version=${VERSION}"
           GOOS=darwin  GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-darwin-arm64 .
           GOOS=darwin  GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-darwin-amd64 .
           GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-windows-amd64.exe .
@@ -48,7 +53,6 @@ jobs:
 
       - name: Package binaries with agent skill
         run: |
-          version="$(git describe --tags --always 2>/dev/null | sed 's/^v//' || echo "dev")"
           skills_src="$(pwd)/plugin/skills"
           cd dist
           dist_dir="$(pwd)"
@@ -61,12 +65,19 @@ jobs:
             cp -R "$skills_src" "$stage/skills"
 
             base="${binary%.exe}"
-            zip_name="${base}-v${version}.zip"
+            zip_name="${base}-v${VERSION}.zip"
             (cd "$stage" && zip -qr "${dist_dir}/${zip_name}" "$inner" skills)
             rm -rf "$stage"
 
             echo "Packaged: dist/${zip_name}"
           done
+
+      - name: Package Codex and Claude plugin
+        run: |
+          zip -qr "dist/save-to-spotify-plugin-v${VERSION}.zip" \
+            plugin/.claude-plugin/plugin.json \
+            plugin/.codex-plugin/plugin.json \
+            plugin/skills
 
       - name: Emit SHA256 sidecars
         run: |

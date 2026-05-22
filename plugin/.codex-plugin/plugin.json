@@ -1,6 +1,6 @@
 {
   "name": "save-to-spotify",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Create polished audio episodes with TTS narration, rich timelines, cover images, and save them to Spotify via the save-to-spotify CLI.",
   "author": {
     "name": "Spotify",
@@ -30,6 +30,8 @@
       "Write"
     ],
     "websiteURL": "https://saveto.spotify.com/",
+    "privacyPolicyURL": "https://www.spotify.com/legal/privacy-policy/",
+    "termsOfServiceURL": "https://www.spotify.com/legal/end-user-agreement/",
     "defaultPrompt": [
       "Create a podcast episode from these notes",
       "Save this audio file to Spotify",
