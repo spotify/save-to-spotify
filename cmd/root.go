@@ -78,6 +78,8 @@ func Execute() error {
 		err = handleTimeline(args[1:])
 	case "update":
 		err = handleUpdate(args[1:])
+	case "feedback":
+		err = handleFeedback(args[1:])
 	case "version", "--version":
 		if config.JSONMode() {
 			return printJSON(map[string]any{"version": version, "commit": commit})
@@ -114,7 +116,7 @@ func shouldStartUpdateCheck(args []string) bool {
 	if len(args) == 0 || os.Getenv(config.EnvVarNoUpdateCheck) != "" {
 		return false
 	}
-	if isHelp(args[0]) || args[0] == "update" || args[0] == "version" || args[0] == "--version" {
+	if isHelp(args[0]) || args[0] == "update" || args[0] == "version" || args[0] == "--version" || args[0] == "feedback" {
 		return false
 	}
 	for i, arg := range args {
@@ -154,6 +156,7 @@ Commands:
   timeline set            Set (replace) timeline from a JSON file
   timeline delete <id>    Delete all timeline items for an episode
   update                  Check for and install updates
+  feedback                Report an issue or share feedback
   token                   Print the current access token (for piping)
   version                 Print version
 
