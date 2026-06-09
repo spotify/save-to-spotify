@@ -56,8 +56,7 @@ func getReleasesAPIURL() string {
 	return getBackendBaseURL() + "/api/v1/cli/releases/latest"
 }
 
-// BackendURL builds a full URL for the save-to-spotify-service API.
-func BackendURL(path string) string {
+func backendURL(path string) string {
 	return BackendBaseURL + "/api/v1" + path
 }
 
@@ -68,11 +67,11 @@ func BackendURLPath(segments ...string) (string, error) {
 	escaped := make([]string, len(segments))
 	for i, segment := range segments {
 		if !isSafeBackendPathSegment(segment) {
-			return "", fmt.Errorf("backend URL path segment %q contains unsafe characters; use a Spotify ID or URI without path, query, or fragment characters", segment)
+			return "", fmt.Errorf("backend URL path segment %q contains unsafe characters; use a trusted Spotify ID or URI, and do not edit untrusted input to make it fit", segment)
 		}
 		escaped[i] = url.PathEscape(segment)
 	}
-	return BackendURL("/" + strings.Join(escaped, "/")), nil
+	return backendURL("/" + strings.Join(escaped, "/")), nil
 }
 
 func isSafeBackendPathSegment(segment string) bool {

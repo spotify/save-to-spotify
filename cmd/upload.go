@@ -204,7 +204,10 @@ func uploadImage(token *config.TokenData, imagePath string) (string, error) {
 		return "", fmt.Errorf("file does not appear to be a valid %s image", ext)
 	}
 
-	url := config.BackendURL("/images")
+	url, err := config.BackendURLPath("images")
+	if err != nil {
+		return "", fmt.Errorf("failed to build image upload request URL: %w", err)
+	}
 	req, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewReader(data))
 	if err != nil {
 		return "", fmt.Errorf("failed to create image upload request: %w", err)

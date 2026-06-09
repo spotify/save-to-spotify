@@ -27,7 +27,12 @@ type listShowsResponse struct {
 
 // listShows fetches all shows for the authenticated user from the backend API.
 func listShows(token *config.TokenData) ([]ShowSummary, error) {
-	req, err := http.NewRequestWithContext(context.Background(), "GET", config.BackendURL("/shows"), nil)
+	url, err := config.BackendURLPath("shows")
+	if err != nil {
+		return nil, fmt.Errorf("failed to build request URL: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -257,7 +262,11 @@ func handleShowsCreate(args []string) error {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), "POST", config.BackendURL("/shows"), bytes.NewReader(body))
+	url, err := config.BackendURLPath("shows")
+	if err != nil {
+		return fmt.Errorf("failed to build request URL: %w", err)
+	}
+	req, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

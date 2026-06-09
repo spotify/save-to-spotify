@@ -1066,6 +1066,16 @@ func TestHandleTimelineDeleteRejectsUnsafeIDsBeforeRequest(t *testing.T) {
 			showID:    "SAFEID",
 			episodeID: "ANY#",
 		},
+		{
+			name:      "unsafe show ID query",
+			showID:    "VICTIMID?delete=true",
+			episodeID: "ANY",
+		},
+		{
+			name:      "unsafe episode ID query",
+			showID:    "SAFEID",
+			episodeID: "ANY?delete=true",
+		},
 	}
 
 	for _, tt := range tests {
