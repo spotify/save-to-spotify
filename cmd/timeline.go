@@ -543,7 +543,10 @@ func handleTimelineSet(args []string) error {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := config.BackendURL(fmt.Sprintf("/shows/%s/episodes/%s/timeline", showID, episodeID))
+	url, err := config.BackendURLPath("shows", showID, "episodes", episodeID, "timeline")
+	if err != nil {
+		return fmt.Errorf("failed to build request URL: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(context.Background(), "PUT", url, bytes.NewReader(body))
 	if err != nil {
@@ -603,7 +606,10 @@ func handleTimelineGet(id string, extraArgs []string) error {
 		return err
 	}
 
-	url := config.BackendURL(fmt.Sprintf("/shows/%s/episodes/%s/timeline", showID, episodeID))
+	url, err := config.BackendURLPath("shows", showID, "episodes", episodeID, "timeline")
+	if err != nil {
+		return fmt.Errorf("failed to build request URL: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	if err != nil {
@@ -668,7 +674,10 @@ func handleTimelineDelete(id string, extraArgs []string) error {
 		return err
 	}
 
-	url := config.BackendURL(fmt.Sprintf("/shows/%s/episodes/%s/timeline", showID, episodeID))
+	url, err := config.BackendURLPath("shows", showID, "episodes", episodeID, "timeline")
+	if err != nil {
+		return fmt.Errorf("failed to build request URL: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(context.Background(), "DELETE", url, nil)
 	if err != nil {

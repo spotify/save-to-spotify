@@ -27,6 +27,47 @@ func TestJSONMode(t *testing.T) {
 	}
 }
 
+func TestBackendURLPath(t *testing.T) {
+	origURL := BackendBaseURL
+	BackendBaseURL = "https://example.test"
+	t.Cleanup(func() { BackendBaseURL = origURL })
+
+	got, err := BackendURLPath("shows", "Show_123-~.", "episodes", "EP99", "timeline")
+	if err != nil {
+		t.Fatalf("BackendURLPath: %v", err)
+	}
+
+	want := "https://example.test/api/v1/shows/Show_123-~./episodes/EP99/timeline"
+	if got != want {
+		t.Errorf("BackendURLPath() = %q, want %q", got, want)
+	}
+}
+
+func TestBackendURLPathRejectsUnsafeSegments(t *testing.T) {
+	tests := []string{
+		"",
+		".",
+		"..",
+		"show#fragment",
+		"show?query",
+		"show/child",
+		"show%2Fchild",
+		"spotify:show:abc123",
+	}
+
+	for _, segment := range tests {
+		t.Run(segment, func(t *testing.T) {
+			_, err := BackendURLPath("shows", segment, "episodes")
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), "unsafe") {
+				t.Errorf("error = %q, want unsafe segment error", err)
+			}
+		})
+	}
+}
+
 func TestAPITimeout_Default(t *testing.T) {
 	// Clear any env override
 	t.Setenv(EnvVarTimeout, "")

@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -57,6 +59,44 @@ func getReleasesAPIURL() string {
 // BackendURL builds a full URL for the save-to-spotify-service API.
 func BackendURL(path string) string {
 	return BackendBaseURL + "/api/v1" + path
+}
+
+// BackendURLPath builds a full backend URL from trusted route segments and
+// caller-supplied resource IDs without allowing path, query, or fragment
+// delimiters to change the request target.
+func BackendURLPath(segments ...string) (string, error) {
+	escaped := make([]string, len(segments))
+	for i, segment := range segments {
+		if !isSafeBackendPathSegment(segment) {
+			return "", fmt.Errorf("backend URL path segment %q contains unsafe characters; use a Spotify ID or URI without path, query, or fragment characters", segment)
+		}
+		escaped[i] = url.PathEscape(segment)
+	}
+	return BackendURL("/" + strings.Join(escaped, "/")), nil
+}
+
+func isSafeBackendPathSegment(segment string) bool {
+	if segment == "" || segment == "." || segment == ".." {
+		return false
+	}
+	for _, r := range segment {
+		if r >= 'a' && r <= 'z' {
+			continue
+		}
+		if r >= 'A' && r <= 'Z' {
+			continue
+		}
+		if r >= '0' && r <= '9' {
+			continue
+		}
+		switch r {
+		case '-', '.', '_', '~':
+			continue
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // jsonMode is set to true when --json is passed on the command line.

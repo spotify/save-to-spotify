@@ -1050,6 +1050,59 @@ func TestHandleTimelineDelete_JSONOutput(t *testing.T) {
 	}
 }
 
+func TestHandleTimelineDeleteRejectsUnsafeIDsBeforeRequest(t *testing.T) {
+	tests := []struct {
+		name      string
+		showID    string
+		episodeID string
+	}{
+		{
+			name:      "unsafe show ID fragment",
+			showID:    "VICTIMID#",
+			episodeID: "ANY",
+		},
+		{
+			name:      "unsafe episode ID fragment",
+			showID:    "SAFEID",
+			episodeID: "ANY#",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupTimelineTest(t)
+
+			requested := make(chan struct{}, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				select {
+				case requested <- struct{}{}:
+				default:
+				}
+				http.NotFound(w, r)
+			}))
+			defer server.Close()
+
+			origURL := config.BackendBaseURL
+			config.BackendBaseURL = server.URL
+			defer func() { config.BackendBaseURL = origURL }()
+
+			err := handleTimelineDelete(tt.episodeID, []string{"--show-id", tt.showID})
+			if err == nil {
+				t.Fatal("expected unsafe ID error")
+			}
+			if !strings.Contains(err.Error(), "unsafe") {
+				t.Fatalf("error = %q, want unsafe ID error", err)
+			}
+
+			select {
+			case <-requested:
+				t.Fatal("backend received a request for an unsafe ID")
+			default:
+			}
+		})
+	}
+}
+
 func TestHandleTimelineDelete_APIError(t *testing.T) {
 	setupTimelineTest(t)
 

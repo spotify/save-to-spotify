@@ -305,7 +305,10 @@ func handleShowsDelete(id string) error {
 		return err
 	}
 
-	url := config.BackendURL(fmt.Sprintf("/shows/%s", id))
+	url, err := config.BackendURLPath("shows", id)
+	if err != nil {
+		return fmt.Errorf("failed to build request URL: %w", err)
+	}
 	req, err := http.NewRequestWithContext(context.Background(), "DELETE", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -354,7 +357,11 @@ func handleShowsGet(id string) error {
 	// Strip URI prefix if provided
 	id = strings.TrimPrefix(id, "spotify:show:")
 
-	req, err := http.NewRequestWithContext(context.Background(), "GET", config.BackendURL(fmt.Sprintf("/shows/%s", id)), nil)
+	url, err := config.BackendURLPath("shows", id)
+	if err != nil {
+		return fmt.Errorf("failed to build request URL: %w", err)
+	}
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

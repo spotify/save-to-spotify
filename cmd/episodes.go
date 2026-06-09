@@ -88,7 +88,10 @@ type listEpisodesResponse struct {
 // listEpisodes fetches all episodes for a show from the backend API.
 func listEpisodes(token *config.TokenData, showID string) ([]EpisodeSummary, error) {
 	showID = strings.TrimPrefix(showID, "spotify:show:")
-	url := config.BackendURL(fmt.Sprintf("/shows/%s/episodes", showID))
+	url, err := config.BackendURLPath("shows", showID, "episodes")
+	if err != nil {
+		return nil, fmt.Errorf("failed to build request URL: %w", err)
+	}
 
 	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	if err != nil {
@@ -327,7 +330,10 @@ func handleEpisodesCreate(args []string) error {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := config.BackendURL(fmt.Sprintf("/shows/%s/episodes", showID))
+	url, err := config.BackendURLPath("shows", showID, "episodes")
+	if err != nil {
+		return fmt.Errorf("failed to build request URL: %w", err)
+	}
 	req, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -448,7 +454,10 @@ func parseEpisodeReadinessFlags(args []string) (*episodeReadinessFlags, error) {
 func fetchEpisodeReadiness(token *config.TokenData, episodeID string) (*episodeReadinessResponse, error) {
 	episodeID = strings.TrimPrefix(episodeID, "spotify:episode:")
 
-	url := config.BackendURL(fmt.Sprintf("/episodes/%s/readiness", episodeID))
+	url, err := config.BackendURLPath("episodes", episodeID, "readiness")
+	if err != nil {
+		return nil, fmt.Errorf("failed to build request URL: %w", err)
+	}
 	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -561,7 +570,10 @@ func handleEpisodesDelete(episodeID string, extraArgs []string) error {
 		return err
 	}
 
-	url := config.BackendURL(fmt.Sprintf("/episodes/%s", episodeID))
+	url, err := config.BackendURLPath("episodes", episodeID)
+	if err != nil {
+		return fmt.Errorf("failed to build request URL: %w", err)
+	}
 	req, err := http.NewRequestWithContext(context.Background(), "DELETE", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
