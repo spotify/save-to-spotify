@@ -22,7 +22,8 @@ const (
 	EnvVarTimeout        = "SAVE_TO_SPOTIFY_TIMEOUT"
 	EnvVarClientID       = "SAVE_TO_SPOTIFY_CLIENT_ID"
 	EnvVarNoUpdateCheck  = "SAVE_TO_SPOTIFY_NO_UPDATE_CHECK"
-	EnvVarReleasesAPIURL = "SAVE_TO_SPOTIFY_RELEASES_API_URL"
+	EnvVarReleasesAPIURL    = "SAVE_TO_SPOTIFY_RELEASES_API_URL"
+	EnvVarGitHubReleasesURL = "SAVE_TO_SPOTIFY_GITHUB_RELEASES_URL"
 
 	Scopes = "sts-content-management"
 
@@ -38,6 +39,9 @@ var AllowedMediaExtensions = map[string]bool{
 
 var BackendBaseURL = getBackendBaseURL()
 
+// GitHubReleasesURL is the GitHub Releases API URL for checking the latest CLI version.
+var GitHubReleasesURL = getGitHubReleasesURL()
+
 // ReleasesAPIURL is the full URL for fetching the latest release version.
 // Defaults to the backend service endpoint; override via SAVE_TO_SPOTIFY_RELEASES_API_URL.
 var ReleasesAPIURL = getReleasesAPIURL()
@@ -47,6 +51,13 @@ func getBackendBaseURL() string {
 		return u
 	}
 	return "https://saveto.spotify.com"
+}
+
+func getGitHubReleasesURL() string {
+	if u := os.Getenv(EnvVarGitHubReleasesURL); u != "" {
+		return u
+	}
+	return "https://api.github.com/repos/spotify/save-to-spotify/releases/latest"
 }
 
 func getReleasesAPIURL() string {

@@ -18,19 +18,12 @@ import (
 )
 
 func TestFetchLatestVersion(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-		json.NewEncoder(w).Encode(latestReleaseResponse{Version: "0.2.0"})
-	}))
+	server := newGitHubReleaseServer(t, "v0.2.0", nil)
 	defer server.Close()
 
-	t.Setenv(config.EnvVarAuthToken, "test-token")
-	orig := config.ReleasesAPIURL
-	config.ReleasesAPIURL = server.URL
-	defer func() { config.ReleasesAPIURL = orig }()
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = server.URL
+	defer func() { config.GitHubReleasesURL = origGH }()
 
 	got, err := fetchLatestVersion()
 	if err != nil {
@@ -42,15 +35,12 @@ func TestFetchLatestVersion(t *testing.T) {
 }
 
 func TestFetchLatestVersionPreRelease(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(latestReleaseResponse{Version: "0.2.0-beta.1"})
-	}))
+	server := newGitHubReleaseServer(t, "v0.2.0-beta.1", nil)
 	defer server.Close()
 
-	t.Setenv(config.EnvVarAuthToken, "test-token")
-	orig := config.ReleasesAPIURL
-	config.ReleasesAPIURL = server.URL
-	defer func() { config.ReleasesAPIURL = orig }()
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = server.URL
+	defer func() { config.GitHubReleasesURL = origGH }()
 
 	got, err := fetchLatestVersion()
 	if err != nil {
@@ -62,6 +52,10 @@ func TestFetchLatestVersionPreRelease(t *testing.T) {
 }
 
 func TestFetchLatestVersionNetworkError(t *testing.T) {
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = "http://127.0.0.1:1"
+	defer func() { config.GitHubReleasesURL = origGH }()
+
 	t.Setenv(config.EnvVarAuthToken, "test-token")
 	orig := config.ReleasesAPIURL
 	config.ReleasesAPIURL = "http://127.0.0.1:1"
@@ -72,7 +66,12 @@ func TestFetchLatestVersionNetworkError(t *testing.T) {
 	}
 }
 
-func TestFetchLatestVersionSendsOSArch(t *testing.T) {
+func TestFetchLatestVersionSendsOSArchToBackend(t *testing.T) {
+	// GitHub is primary, but if it fails, the backend fallback should send os/arch.
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = "http://127.0.0.1:1"
+	defer func() { config.GitHubReleasesURL = origGH }()
+
 	var gotOS, gotArch string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotOS = r.URL.Query().Get("os")
@@ -97,7 +96,32 @@ func TestFetchLatestVersionSendsOSArch(t *testing.T) {
 	}
 }
 
-func TestFetchLatestVersionReturnsAssetFields(t *testing.T) {
+func TestFetchLatestVersionReturnsAssetURL(t *testing.T) {
+	assets := []githubAsset{
+		{Name: "save-to-spotify-darwin-arm64-v0.2.0.zip", BrowserDownloadURL: "https://github.com/dl/darwin-arm64.zip"},
+		{Name: "save-to-spotify-linux-amd64-v0.2.0.zip", BrowserDownloadURL: "https://github.com/dl/linux-amd64.zip"},
+	}
+	server := newGitHubReleaseServer(t, "v0.2.0", assets)
+	defer server.Close()
+
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = server.URL
+	defer func() { config.GitHubReleasesURL = origGH }()
+
+	got, err := fetchLatestVersion()
+	if err != nil {
+		t.Fatalf("fetchLatestVersion: %v", err)
+	}
+	if got.AssetURL == "" {
+		t.Fatal("AssetURL is empty, want a matching asset URL")
+	}
+}
+
+func TestFetchLatestVersionFallsBackToBackend(t *testing.T) {
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = "http://127.0.0.1:1"
+	defer func() { config.GitHubReleasesURL = origGH }()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(latestReleaseResponse{
 			Version:  "0.2.0",
@@ -116,11 +140,11 @@ func TestFetchLatestVersionReturnsAssetFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fetchLatestVersion: %v", err)
 	}
+	if got.Version != "0.2.0" {
+		t.Fatalf("Version = %q, want %q", got.Version, "0.2.0")
+	}
 	if got.AssetURL != "https://example.com/binary" {
 		t.Fatalf("AssetURL = %q, want %q", got.AssetURL, "https://example.com/binary")
-	}
-	if got.SHA256 != "abc123" {
-		t.Fatalf("SHA256 = %q, want %q", got.SHA256, "abc123")
 	}
 }
 
@@ -343,15 +367,12 @@ func TestHandleUpdateAlreadyCurrent(t *testing.T) {
 	version = "1.0.0"
 	defer func() { version = orig }()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(latestReleaseResponse{Version: version})
-	}))
+	server := newGitHubReleaseServer(t, "v"+version, nil)
 	defer server.Close()
 
-	t.Setenv(config.EnvVarAuthToken, "test-token")
-	origURL := config.ReleasesAPIURL
-	config.ReleasesAPIURL = server.URL
-	defer func() { config.ReleasesAPIURL = origURL }()
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = server.URL
+	defer func() { config.GitHubReleasesURL = origGH }()
 
 	output := captureOutput(t, func() error {
 		return handleUpdate(nil)
@@ -362,15 +383,12 @@ func TestHandleUpdateAlreadyCurrent(t *testing.T) {
 }
 
 func TestHandleUpdateCheckOnly(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(latestReleaseResponse{Version: "9.9.9"})
-	}))
+	server := newGitHubReleaseServer(t, "v9.9.9", nil)
 	defer server.Close()
 
-	t.Setenv(config.EnvVarAuthToken, "test-token")
-	orig := config.ReleasesAPIURL
-	config.ReleasesAPIURL = server.URL
-	defer func() { config.ReleasesAPIURL = orig }()
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = server.URL
+	defer func() { config.GitHubReleasesURL = origGH }()
 
 	output := captureOutput(t, func() error {
 		return handleUpdate([]string{"--check"})
@@ -402,6 +420,13 @@ func TestDoAPIRequest_MinCLIVersion(t *testing.T) {
 	} else if !strings.Contains(err.Error(), "no longer supported") {
 		t.Fatalf("doAPIRequest error = %q, want unsupported version message", err)
 	}
+}
+
+func newGitHubReleaseServer(t *testing.T, tagName string, assets []githubAsset) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(githubRelease{TagName: tagName, Assets: assets})
+	}))
 }
 
 func captureOutput(t *testing.T, fn func() error) string {

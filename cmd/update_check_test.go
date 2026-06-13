@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,16 +17,15 @@ import (
 func TestStartUpdateCheckNewVersion(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
-	t.Setenv(config.EnvVarAuthToken, "test-token")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"version":"9.9.9"}`))
+		json.NewEncoder(w).Encode(githubRelease{TagName: "v9.9.9"})
 	}))
 	defer server.Close()
 
-	orig := config.ReleasesAPIURL
-	config.ReleasesAPIURL = server.URL
-	defer func() { config.ReleasesAPIURL = orig }()
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = server.URL
+	defer func() { config.GitHubReleasesURL = origGH }()
 
 	stderr := captureStderr(t, func() {
 		StartUpdateCheck()()
@@ -38,16 +38,15 @@ func TestStartUpdateCheckNewVersion(t *testing.T) {
 func TestStartUpdateCheckCurrent(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
-	t.Setenv(config.EnvVarAuthToken, "test-token")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"version":"` + version + `"}`))
+		json.NewEncoder(w).Encode(githubRelease{TagName: "v" + version})
 	}))
 	defer server.Close()
 
-	orig := config.ReleasesAPIURL
-	config.ReleasesAPIURL = server.URL
-	defer func() { config.ReleasesAPIURL = orig }()
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = server.URL
+	defer func() { config.GitHubReleasesURL = origGH }()
 
 	stderr := captureStderr(t, func() {
 		StartUpdateCheck()()
@@ -71,13 +70,13 @@ func TestStartUpdateCheckCached(t *testing.T) {
 	var hits atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits.Add(1)
-		w.Write([]byte(`{"version":"9.9.9"}`))
+		json.NewEncoder(w).Encode(githubRelease{TagName: "v9.9.9"})
 	}))
 	defer server.Close()
 
-	orig := config.ReleasesAPIURL
-	config.ReleasesAPIURL = server.URL
-	defer func() { config.ReleasesAPIURL = orig }()
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = server.URL
+	defer func() { config.GitHubReleasesURL = origGH }()
 
 	captureStderr(t, func() {
 		StartUpdateCheck()()
@@ -91,7 +90,6 @@ func TestStartUpdateCheckCached(t *testing.T) {
 func TestStartUpdateCheckStaleCache(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
-	t.Setenv(config.EnvVarAuthToken, "test-token")
 
 	if err := saveUpdateCheckCache(&updateCheckCache{
 		LatestVersion: "9.9.8",
@@ -103,13 +101,13 @@ func TestStartUpdateCheckStaleCache(t *testing.T) {
 	var hits atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits.Add(1)
-		w.Write([]byte(`{"version":"9.9.9"}`))
+		json.NewEncoder(w).Encode(githubRelease{TagName: "v9.9.9"})
 	}))
 	defer server.Close()
 
-	orig := config.ReleasesAPIURL
-	config.ReleasesAPIURL = server.URL
-	defer func() { config.ReleasesAPIURL = orig }()
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = server.URL
+	defer func() { config.GitHubReleasesURL = origGH }()
 
 	captureStderr(t, func() {
 		StartUpdateCheck()()
@@ -128,13 +126,13 @@ func TestStartUpdateCheckDisabled(t *testing.T) {
 	var hits atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits.Add(1)
-		w.Write([]byte(`{"version":"9.9.9"}`))
+		json.NewEncoder(w).Encode(githubRelease{TagName: "v9.9.9"})
 	}))
 	defer server.Close()
 
-	orig := config.ReleasesAPIURL
-	config.ReleasesAPIURL = server.URL
-	defer func() { config.ReleasesAPIURL = orig }()
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = server.URL
+	defer func() { config.GitHubReleasesURL = origGH }()
 
 	stderr := captureStderr(t, func() {
 		StartUpdateCheck()()
@@ -151,7 +149,6 @@ func TestStartUpdateCheckDisabled(t *testing.T) {
 func TestStartUpdateCheckTimeout(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
-	t.Setenv(config.EnvVarAuthToken, "test-token")
 
 	oldWait := updateNoticeWaitTimeout
 	updateNoticeWaitTimeout = 20 * time.Millisecond
@@ -159,13 +156,13 @@ func TestStartUpdateCheckTimeout(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(200 * time.Millisecond)
-		w.Write([]byte(`{"version":"9.9.9"}`))
+		json.NewEncoder(w).Encode(githubRelease{TagName: "v9.9.9"})
 	}))
 	defer server.Close()
 
-	orig := config.ReleasesAPIURL
-	config.ReleasesAPIURL = server.URL
-	defer func() { config.ReleasesAPIURL = orig }()
+	origGH := config.GitHubReleasesURL
+	config.GitHubReleasesURL = server.URL
+	defer func() { config.GitHubReleasesURL = origGH }()
 
 	stderr := captureStderr(t, func() {
 		StartUpdateCheck()()
