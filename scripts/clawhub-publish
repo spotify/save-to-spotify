@@ -7,6 +7,7 @@
 # Environment overrides:
 #   CLAWHUB_OWNER                  Owner namespace, defaults to "spotify"
 #   CLAWHUB_SKILL_PATH             Skill directory, defaults to plugin/skills/save-to-spotify
+#   CLAWHUB_TOKEN                  API token for non-interactive CI publishing
 
 set -euo pipefail
 
@@ -72,4 +73,8 @@ if [[ ! -d "$skill_path" ]]; then
 fi
 
 printf 'Publishing %s@%s to ClawHub owner %s\n' "$skill_path" "$version" "$owner"
+if [[ -n "${CLAWHUB_TOKEN:-}" ]]; then
+  clawhub --no-input login --token "$CLAWHUB_TOKEN" --no-browser
+fi
+
 exec clawhub skill publish "$skill_path" --version "$version" --owner "$owner"
