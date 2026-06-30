@@ -47,6 +47,9 @@ func doAPIRequest(req *http.Request, token *config.TokenData) (*http.Response, e
 	if req.Body != nil && req.Header.Get("Content-Type") == "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	for k, v := range config.AdditionalHeaders {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {

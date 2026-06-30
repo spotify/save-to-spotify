@@ -285,3 +285,43 @@ func GetClientID() string {
 	}
 	return ClientID
 }
+
+const EnvVarHeaders = "SAVE_TO_SPOTIFY_HEADERS"
+
+// AdditionalHeaders holds extra HTTP headers to send on every backend API request.
+// Parsed from SAVE_TO_SPOTIFY_HEADERS, a JSON array of "Key:Value" strings.
+// Only headers with the X-STS- prefix are accepted; others are silently dropped.
+var AdditionalHeaders = parseAdditionalHeaders()
+
+func parseAdditionalHeaders() map[string]string {
+	raw := os.Getenv(EnvVarHeaders)
+	if raw == "" {
+		return nil
+	}
+
+	var entries []string
+	if err := json.Unmarshal([]byte(raw), &entries); err != nil {
+		return nil
+	}
+
+	headers := make(map[string]string)
+	for _, entry := range entries {
+		key, val, ok := strings.Cut(entry, ":")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		val = strings.TrimSpace(val)
+		if key == "" || val == "" {
+			continue
+		}
+		if !strings.HasPrefix(key, "X-STS-") {
+			continue
+		}
+		headers[key] = val
+	}
+	if len(headers) == 0 {
+		return nil
+	}
+	return headers
+}

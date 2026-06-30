@@ -181,3 +181,55 @@ func TestDPoPKeyPath(t *testing.T) {
 		t.Errorf("DPoPKeyPath = %q, want %q", path, want)
 	}
 }
+
+func setHeadersEnv(t *testing.T, val string) {
+	t.Helper()
+	t.Setenv(EnvVarHeaders, val)
+	orig := AdditionalHeaders
+	AdditionalHeaders = parseAdditionalHeaders()
+	t.Cleanup(func() { AdditionalHeaders = orig })
+}
+
+func TestParseAdditionalHeaders(t *testing.T) {
+	setHeadersEnv(t, `["X-STS-Test:true","X-STS-Foo:bar"]`)
+
+	if got := AdditionalHeaders["X-STS-Test"]; got != "true" {
+		t.Errorf("X-STS-Test = %q, want %q", got, "true")
+	}
+	if got := AdditionalHeaders["X-STS-Foo"]; got != "bar" {
+		t.Errorf("X-STS-Foo = %q, want %q", got, "bar")
+	}
+}
+
+func TestParseAdditionalHeaders_Empty(t *testing.T) {
+	setHeadersEnv(t, "")
+
+	if AdditionalHeaders != nil {
+		t.Errorf("expected nil, got %v", AdditionalHeaders)
+	}
+}
+
+func TestParseAdditionalHeaders_InvalidJSON(t *testing.T) {
+	setHeadersEnv(t, "not json")
+
+	if AdditionalHeaders != nil {
+		t.Errorf("expected nil for invalid JSON, got %v", AdditionalHeaders)
+	}
+}
+
+func TestParseAdditionalHeaders_RejectsNonSTS(t *testing.T) {
+	setHeadersEnv(t, `["X-STS-Test:true","X-Custom:bad","Authorization:evil"]`)
+
+	if got := AdditionalHeaders["X-STS-Test"]; got != "true" {
+		t.Errorf("X-STS-Test = %q, want %q", got, "true")
+	}
+	if _, ok := AdditionalHeaders["X-Custom"]; ok {
+		t.Error("X-Custom should have been rejected")
+	}
+	if _, ok := AdditionalHeaders["Authorization"]; ok {
+		t.Error("Authorization should have been rejected")
+	}
+	if len(AdditionalHeaders) != 1 {
+		t.Errorf("expected 1 header, got %d: %v", len(AdditionalHeaders), AdditionalHeaders)
+	}
+}
