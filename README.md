@@ -292,4 +292,4 @@ save-to-spotify list shows
 | `SAVE_TO_SPOTIFY_TIMEOUT` | API request timeout (e.g. `30s`, `2m`) | `30s` |
 | `SAVE_TO_SPOTIFY_CLIENT_ID` | OAuth client ID override | built-in |
 | `SAVE_TO_SPOTIFY_NO_UPDATE_CHECK` | Disable passive update checks | off |
-| `SAVE_TO_SPOTIFY_HEADERS` | Additional headers for backend requests (JSON array of `"Key:Value"` strings; only `X-STS-*` headers are accepted) | — |
+| `SAVE_TO_SPOTIFY_HEADERS` | Additional headers for backend requests (JSON object of header name/value pairs; only `X-STS-*` headers are accepted) | — |
