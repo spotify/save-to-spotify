@@ -207,6 +207,10 @@ save-to-spotify --json shows delete <show_id>
 
 `save-to-spotify --json shows` should be the first show-management command you run. Check what already exists before creating a new show.
 
+### Playback control
+
+`shows create` accepts `--playback-control <mode>` (currently `chapter-skip`) to set a show's skip-forward behavior at creation time. The response includes `playback_control` only when the backend applied the setting — if the field is absent, the value was dropped and the show has default controls. For behavior, constraints, and when to enable it, defer to the `configure-chapter-skip` skill.
+
 ## Managing episodes
 
 ```shell

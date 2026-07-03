@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/spotify/save-to-spotify/config"
@@ -149,11 +150,49 @@ func handleShowsList() error {
 	return nil
 }
 
+// playbackControlModes maps CLI mode names to API enum names.
+var playbackControlModes = map[string]string{
+	"chapter-skip": "PLAYBACK_CONTROL_CHAPTER_SKIP",
+}
+
+func playbackControlModeNames() string {
+	names := make([]string, 0, len(playbackControlModes))
+	for name := range playbackControlModes {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
+}
+
+// resolvePlaybackControlMode validates a CLI mode name and returns the API value.
+// The CLI must reject unknown modes itself: the backend silently drops values it
+// doesn't recognize, so a typo passed through would create a default-controls show.
+func resolvePlaybackControlMode(mode string) (string, error) {
+	value, ok := playbackControlModes[mode]
+	if !ok {
+		return "", fmt.Errorf("unknown playback control mode %q (supported: %s)", mode, playbackControlModeNames())
+	}
+	return value, nil
+}
+
+// playbackControlModeName returns the CLI mode name for an API enum name,
+// or the value unchanged if it is not in the registry.
+func playbackControlModeName(value string) string {
+	for name, v := range playbackControlModes {
+		if v == value {
+			return name
+		}
+	}
+	return value
+}
+
 type showCreateFlags struct {
-	title    string
-	summary  string
-	image    string // local image file path (.jpg/.png, max 1 MB)
-	language string
+	title              string
+	summary            string
+	image              string // local image file path (.jpg/.png, max 1 MB)
+	language           string
+	playbackControl    string // CLI mode name, used in the not-confirmed warning
+	playbackControlAPI string // resolved API enum name sent to the backend
 }
 
 func parseShowCreateFlags(args []string) (*showCreateFlags, error) {
@@ -187,6 +226,17 @@ func parseShowCreateFlags(args []string) (*showCreateFlags, error) {
 			}
 			i++
 			f.language = args[i]
+		case "--playback-control":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("--playback-control requires a value (supported: %s)", playbackControlModeNames())
+			}
+			i++
+			value, err := resolvePlaybackControlMode(args[i])
+			if err != nil {
+				return nil, err
+			}
+			f.playbackControl = args[i]
+			f.playbackControlAPI = value
 		default:
 			return nil, fmt.Errorf("unknown flag: %s", args[i])
 		}
@@ -204,14 +254,19 @@ func parseShowCreateFlags(args []string) (*showCreateFlags, error) {
 }
 
 type showCreateRequest struct {
-	Title      string `json:"title"`
-	Summary    string `json:"summary"`
-	Language   string `json:"language"`
-	ImageToken string `json:"image_token,omitempty"`
+	Title           string `json:"title"`
+	Summary         string `json:"summary"`
+	Language        string `json:"language"`
+	ImageToken      string `json:"image_token,omitempty"`
+	PlaybackControl string `json:"playback_control,omitempty"`
 }
 
 type showCreateResponse struct {
 	ShowURI string `json:"show_uri"`
+	// Echoed by the server when it applied the setting; absent when it was
+	// dropped, which is the only failure signal — the create still returns 201.
+	// Reverse-mapped to the CLI mode name before this struct is printed.
+	PlaybackControl string `json:"playback_control,omitempty"`
 }
 
 func printShowsCreateUsage() {
@@ -223,10 +278,11 @@ Required flags:
   --title <title>        Show title
 
 Optional flags:
-  --summary <text>       Show description (default: "(no description)")
-  --image <path>         Cover image file (.jpg/.png, max 1 MB)
-  --language <code>      Language code (default: en)
-`, binName)
+  --summary <text>            Show description (default: "(no description)")
+  --image <path>              Cover image file (.jpg/.png, max 1 MB)
+  --language <code>           Language code (default: en)
+  --playback-control <mode>   Playback control mode (supported: %s)
+`, binName, playbackControlModeNames())
 }
 
 func handleShowsCreate(args []string) error {
@@ -251,10 +307,11 @@ func handleShowsCreate(args []string) error {
 	}
 
 	reqBody := showCreateRequest{
-		Title:      flags.title,
-		Summary:    flags.summary,
-		Language:   flags.language,
-		ImageToken: imageToken,
+		Title:           flags.title,
+		Summary:         flags.summary,
+		Language:        flags.language,
+		ImageToken:      imageToken,
+		PlaybackControl: flags.playbackControlAPI,
 	}
 
 	body, err := json.Marshal(reqBody)
@@ -293,6 +350,12 @@ func handleShowsCreate(args []string) error {
 		return fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	if result.PlaybackControl != "" {
+		result.PlaybackControl = playbackControlModeName(result.PlaybackControl)
+	} else if flags.playbackControl != "" {
+		info("Warning: the backend did not confirm playback control %q — the show was created with default controls.\n", flags.playbackControl)
+	}
+
 	if config.JSONMode() {
 		return printJSON(result)
 	}
@@ -300,6 +363,9 @@ func handleShowsCreate(args []string) error {
 	fmt.Println("Show created successfully.")
 	fmt.Printf("  URI:   %s\n", result.ShowURI)
 	fmt.Printf("  Title: %s\n", flags.title)
+	if result.PlaybackControl != "" {
+		fmt.Printf("  Playback control: %s\n", result.PlaybackControl)
+	}
 
 	return nil
 }
