@@ -315,6 +315,7 @@ func parseAdditionalHeaders() map[string]string {
 
 	var entries map[string]string
 	if err := json.Unmarshal([]byte(raw), &entries); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %s contains invalid JSON, ignoring: %v\n", EnvVarHeaders, err)
 		return nil
 	}
 	return filterAdditionalHeaders(entries)
