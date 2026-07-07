@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/spotify/save-to-spotify/config"
-	"github.com/spotify/save-to-spotify/internal/httpx"
 )
 
 var (
@@ -148,7 +147,7 @@ func fetchLatestVersion() (latestReleaseResponse, error) {
 
 	resp, err := (&http.Client{
 		Timeout:   releaseMetadataTimeout,
-		Transport: httpx.UserAgentTransport{UserAgent: cliUserAgent()},
+		Transport: backendTransport(),
 	}).Do(req)
 	if err != nil {
 		return latestReleaseResponse{}, fmt.Errorf("failed to check for updates: %w", err)

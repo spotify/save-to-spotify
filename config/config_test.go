@@ -181,3 +181,102 @@ func TestDPoPKeyPath(t *testing.T) {
 		t.Errorf("DPoPKeyPath = %q, want %q", path, want)
 	}
 }
+
+func setHeadersEnv(t *testing.T, val string) {
+	t.Helper()
+	t.Setenv(EnvVarHeaders, val)
+	orig := additionalHeaders
+	additionalHeaders = parseAdditionalHeaders()
+	t.Cleanup(func() { additionalHeaders = orig })
+}
+
+func TestParseAdditionalHeaders(t *testing.T) {
+	setHeadersEnv(t, `{"X-STS-Test":"true","X-STS-Foo":"bar"}`)
+
+	if got := AdditionalHeaders()["X-Sts-Test"]; got != "true" {
+		t.Errorf("X-Sts-Test = %q, want %q", got, "true")
+	}
+	if got := AdditionalHeaders()["X-Sts-Foo"]; got != "bar" {
+		t.Errorf("X-Sts-Foo = %q, want %q", got, "bar")
+	}
+}
+
+func TestParseAdditionalHeaders_Empty(t *testing.T) {
+	setHeadersEnv(t, "")
+
+	if AdditionalHeaders() != nil {
+		t.Errorf("expected nil, got %v", AdditionalHeaders())
+	}
+}
+
+func TestParseAdditionalHeaders_InvalidJSON(t *testing.T) {
+	setHeadersEnv(t, "not json")
+
+	if AdditionalHeaders() != nil {
+		t.Errorf("expected nil for invalid JSON, got %v", AdditionalHeaders())
+	}
+}
+
+func TestParseAdditionalHeaders_RejectsNonSTS(t *testing.T) {
+	setHeadersEnv(t, `{"X-STS-Test":"true","X-Custom":"bad","Authorization":"evil"}`)
+
+	if got := AdditionalHeaders()["X-Sts-Test"]; got != "true" {
+		t.Errorf("X-Sts-Test = %q, want %q", got, "true")
+	}
+	if len(AdditionalHeaders()) != 1 {
+		t.Errorf("expected 1 header, got %d: %v", len(AdditionalHeaders()), AdditionalHeaders())
+	}
+}
+
+func TestParseAdditionalHeaders_CanonicalizesAnyCasing(t *testing.T) {
+	setHeadersEnv(t, `{"x-sts-trace-id":"123"}`)
+
+	if got := AdditionalHeaders()["X-Sts-Trace-Id"]; got != "123" {
+		t.Errorf("X-Sts-Trace-Id = %q, want %q", got, "123")
+	}
+}
+
+func TestParseAdditionalHeaders_CaseCollisionIsDeterministic(t *testing.T) {
+	setHeadersEnv(t, `{"X-STS-TEST":"upper","X-STS-Test":"mixed"}`)
+
+	if len(AdditionalHeaders()) != 1 {
+		t.Fatalf("expected 1 header, got %v", AdditionalHeaders())
+	}
+	// Keys are filtered in sorted order, so the last sorted spelling wins.
+	if got := AdditionalHeaders()["X-Sts-Test"]; got != "mixed" {
+		t.Errorf("X-Sts-Test = %q, want %q", got, "mixed")
+	}
+}
+
+func TestParseAdditionalHeaders_RejectsInvalidName(t *testing.T) {
+	setHeadersEnv(t, `{"X-Sts-Trace Id":"abc"}`)
+
+	if AdditionalHeaders() != nil {
+		t.Errorf("expected nil for invalid header name, got %v", AdditionalHeaders())
+	}
+}
+
+func TestParseAdditionalHeaders_RejectsInvalidValue(t *testing.T) {
+	setHeadersEnv(t, `{"X-STS-Test":"a\nb"}`)
+
+	if AdditionalHeaders() != nil {
+		t.Errorf("expected nil for invalid header value, got %v", AdditionalHeaders())
+	}
+}
+
+func TestSetAdditionalHeaders_AppliesFiltering(t *testing.T) {
+	orig := additionalHeaders
+	t.Cleanup(func() { additionalHeaders = orig })
+
+	SetAdditionalHeaders(map[string]string{
+		"x-sts-test":    "1",
+		"Authorization": "evil",
+	})
+
+	if got := AdditionalHeaders()["X-Sts-Test"]; got != "1" {
+		t.Errorf("X-Sts-Test = %q, want %q", got, "1")
+	}
+	if len(AdditionalHeaders()) != 1 {
+		t.Errorf("expected 1 header, got %v", AdditionalHeaders())
+	}
+}
