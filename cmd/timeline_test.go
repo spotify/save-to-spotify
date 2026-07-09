@@ -194,33 +194,14 @@ func TestValidateTimeline_ChapterTooShort(t *testing.T) {
 	}
 }
 
-func TestValidateTimeline_TooManyShortChapters(t *testing.T) {
-	// 6 chapters, 4 of them < 30s — ceil(6*0.15+1) = ceil(1.9) = 2, so max 2 short chapters
+func TestValidateTimeline_ManyShortChaptersAllowed(t *testing.T) {
+	// Any number of short chapters is allowed as long as gaps stay ≥ 5s.
 	items := []timelineItem{
 		{Chapter: &timelineChapter{Title: "A", StartTimeMs: 0}},
 		{Chapter: &timelineChapter{Title: "B", StartTimeMs: 10000}},
 		{Chapter: &timelineChapter{Title: "C", StartTimeMs: 20000}},
 		{Chapter: &timelineChapter{Title: "D", StartTimeMs: 25000}},
 		{Chapter: &timelineChapter{Title: "E", StartTimeMs: 35000}},
-		{Chapter: &timelineChapter{Title: "F", StartTimeMs: 300000}},
-	}
-	err := validateTimeline(items)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !strings.Contains(err.Error(), "too many short chapters") {
-		t.Errorf("error = %q", err)
-	}
-}
-
-func TestValidateTimeline_ShortChaptersWithinLimit(t *testing.T) {
-	// 6 chapters, 1 short — ceil(6*0.15+1) = 2, so 1 short is fine
-	items := []timelineItem{
-		{Chapter: &timelineChapter{Title: "A", StartTimeMs: 0}},
-		{Chapter: &timelineChapter{Title: "B", StartTimeMs: 10000}},
-		{Chapter: &timelineChapter{Title: "C", StartTimeMs: 60000}},
-		{Chapter: &timelineChapter{Title: "D", StartTimeMs: 120000}},
-		{Chapter: &timelineChapter{Title: "E", StartTimeMs: 180000}},
 		{Chapter: &timelineChapter{Title: "F", StartTimeMs: 300000}},
 	}
 	if err := validateTimeline(items); err != nil {
