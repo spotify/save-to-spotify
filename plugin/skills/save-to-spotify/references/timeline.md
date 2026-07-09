@@ -49,7 +49,7 @@ Each entry in `items` is one of four kinds: `chapter`, `image`, `link`, or `spot
 
 Rules are checked both client-side and on the backend:
 
-- **Chapters:** at least 2, first at `0 ms`, strictly increasing `start_time_ms`, `title` required, `description` optional. Every `start_time_ms` must be strictly less than the episode's audio duration — the CLI and backend can't verify this, so compute timestamps from cumulative segment durations and assert against the assembled MP3 before `timeline set` (see [audio-providers.md](audio-providers.md) "Timeline timestamp calculation").
+- **Chapters:** at least 2, first at `0 ms`, strictly increasing `start_time_ms` with consecutive starts ≥ 5 s apart (the final chapter may be shorter), `title` required, `description` optional. Every `start_time_ms` must be strictly less than the episode's audio duration — the CLI and backend can't verify this, so compute timestamps from cumulative segment durations and assert against the assembled MP3 before `timeline set` (see [audio-providers.md](audio-providers.md) "Timeline timestamp calculation").
 - **Images:** positive `duration_ms`, local file path in `image` (`.jpg`/`.png`, ≤ 1 MB, dimensions 1×1..4096×4096). Optional `url` (tap-through) and `title` (alt text). When an image is tied to one canonical source URL, default to setting that URL here.
 - **Links:** positive `duration_ms`, valid HTTP(S) `url`.
 - **Spotify entities:** `uri` is required and must be a full `spotify:...` URI. `duration_ms` is optional, but when present it must be positive. Use this for Spotify-native references such as tracks, albums, artists, playlists, shows, episodes, and audiobook/catalog entities.
