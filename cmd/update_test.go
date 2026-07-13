@@ -79,9 +79,14 @@ func TestFetchLatestVersionSendsOSArchToBackend(t *testing.T) {
 }
 
 func TestFetchLatestVersionReturnsAssetURL(t *testing.T) {
+	baseName, err := currentBinaryAssetName()
+	if err != nil {
+		t.Fatalf("currentBinaryAssetName: %v", err)
+	}
+	wantURL := "https://github.com/dl/" + baseName + ".zip"
 	assets := []githubAsset{
-		{Name: "save-to-spotify-darwin-arm64-v0.2.0.zip", BrowserDownloadURL: "https://github.com/dl/darwin-arm64.zip"},
-		{Name: "save-to-spotify-linux-amd64-v0.2.0.zip", BrowserDownloadURL: "https://github.com/dl/linux-amd64.zip"},
+		{Name: "save-to-spotify-otheros-otherarch-v0.2.0.zip", BrowserDownloadURL: "https://github.com/dl/other.zip"},
+		{Name: baseName + "-v0.2.0.zip", BrowserDownloadURL: wantURL},
 	}
 	newGitHubReleaseServer(t, "v0.2.0", assets)
 
@@ -89,8 +94,8 @@ func TestFetchLatestVersionReturnsAssetURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fetchLatestVersion: %v", err)
 	}
-	if got.AssetURL == "" {
-		t.Fatal("AssetURL is empty, want a matching asset URL")
+	if got.AssetURL != wantURL {
+		t.Fatalf("AssetURL = %q, want %q", got.AssetURL, wantURL)
 	}
 }
 
