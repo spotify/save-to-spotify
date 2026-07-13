@@ -99,6 +99,8 @@ At minimum, always confirm these before producing anything:
 
 Collect the missing choices explicitly rather than inventing your own default profile.
 
+**Chapter-skip playback is NOT an interview question** — never ask about or enable it unprompted; the `configure-chapter-skip` skill owns the trigger rules and workflow.
+
 **Ask these questions in your first response and STOP.** Wait for the user to answer. Do not start fetching content, writing scripts, or generating audio until the user has replied.
 
 If the user's initial prompt already covers some of these (e.g., "make an 8-minute English podcast about..."), skip those questions but still present a plan and wait for confirmation.
@@ -107,8 +109,11 @@ If the user's initial prompt already covers some of these (e.g., "make an 8-minu
 
 Before starting production, present a short plan:
 - Episode title, language, estimated length, number of segments, voice, show name
+- Skip-forward action: `15 seconds` (default) or `Next chapter` (if explicitly requested)
 
 Say: "Here's what I'll produce — let me know if you'd like to change anything, or say 'go' to proceed."
+
+If the user changes the skip-forward action here, treat it as an explicit request — see the `configure-chapter-skip` skill.
 
 **Do not start production until the user confirms.**
 

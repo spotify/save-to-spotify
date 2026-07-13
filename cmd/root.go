@@ -178,6 +178,8 @@ Environment variables:
   SAVE_TO_SPOTIFY_CLIENT_ID     OAuth client ID override
   SAVE_TO_SPOTIFY_NO_UPDATE_CHECK    Disable the passive update check that runs after successful commands
   SAVE_TO_SPOTIFY_RELEASES_URL       Override the releases download URL
-  SAVE_TO_SPOTIFY_RELEASES_API_URL   Override the version check URL
+  SAVE_TO_SPOTIFY_RELEASES_API_URL   Override the fallback version check URL (backend)
+  SAVE_TO_SPOTIFY_GITHUB_RELEASES_URL   Override the primary version check URL (GitHub Releases API)
+  SAVE_TO_SPOTIFY_HEADERS            Additional backend headers (JSON object, X-STS-* only)
 `, binName)
 }

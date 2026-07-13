@@ -18,12 +18,22 @@ func cliUserAgent() string {
 	return fmt.Sprintf("%s/%s %s/%s", binName, uaVersion, runtime.GOOS, runtime.GOARCH)
 }
 
+// backendTransport applies the CLI User-Agent to all requests and the
+// additional backend headers (config.AdditionalHeaders) to requests targeting
+// the backend host, delegating to http.DefaultTransport.
+func backendTransport() http.RoundTripper {
+	return httpx.BackendHeadersTransport{
+		Base:       httpx.UserAgentTransport{UserAgent: cliUserAgent()},
+		Headers:    config.AdditionalHeaders,
+		BackendURL: func() string { return config.BackendBaseURL },
+	}
+}
+
 // httpClient is the shared HTTP client
 // Its Timeout is set in Execute() after flag parsing (default: 30s, override via --timeout or config.EnvVarTimeout).
-// The transport applies the CLI User-Agent while still delegating to http.DefaultTransport by default.
 var httpClient = &http.Client{
 	Timeout:   config.APITimeout(),
-	Transport: httpx.UserAgentTransport{UserAgent: cliUserAgent()},
+	Transport: backendTransport(),
 }
 
 // uploadClient is used for signed GCS PUTs. No timeout — large files can take many minutes.

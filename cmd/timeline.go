@@ -9,7 +9,6 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -242,7 +241,6 @@ Example timeline.json:
 Rules:
   Chapters: optional; if present, ≥ 2 required, first at 0ms, strictly increasing, ≥ 5s apart, title required
             Final chapter may be shorter than 5s; only non-final chapter gaps must be ≥ 5s
-            Note: PCA rejects timelines where too many chapters are < 30s (limit: ceil(N*0.15+1))
   Images:   duration_ms > 0, image file required (.jpg/.png, max 1 MB)
             width/height are auto-read for local files; required with image_token
   Links:    duration_ms > 0, valid HTTP(S) URL required
@@ -263,8 +261,6 @@ Examples:
 const maxImageDimension = 4096
 
 const minChapterDurationMs = 5000
-
-const shortChapterThresholdMs = 30000
 
 // imageSize decodes width and height from an image file without reading the full image into memory.
 func imageSize(path string) (int, int, error) {
@@ -439,19 +435,6 @@ func validateTimeline(items []timelineItem) error {
 		}
 		if i < len(chapters)-1 && chapters[i].StartTimeMs-chapters[i-1].StartTimeMs < minChapterDurationMs {
 			return fmt.Errorf("chapter at index %d must be at least %ds long (found %dms between start times)", chapterIndices[i-1], minChapterDurationMs/1000, chapters[i].StartTimeMs-chapters[i-1].StartTimeMs)
-		}
-	}
-
-	if len(chapters) >= 2 {
-		shortCount := 0
-		for i := 1; i < len(chapters); i++ {
-			if chapters[i].StartTimeMs-chapters[i-1].StartTimeMs < shortChapterThresholdMs {
-				shortCount++
-			}
-		}
-		maxShort := int(math.Ceil(float64(len(chapters))*0.15 + 1))
-		if shortCount > maxShort {
-			return fmt.Errorf("too many short chapters (< 30s): %d found, max allowed is %d for %d chapters", shortCount, maxShort, len(chapters))
 		}
 	}
 

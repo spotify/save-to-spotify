@@ -126,12 +126,16 @@ func handleUpdate(args []string) error {
 }
 
 func fetchLatestVersion() (latestReleaseResponse, error) {
-	release, err := fetchFromGitHub()
-	if err == nil {
+	release, ghErr := fetchFromGitHub()
+	if ghErr == nil {
 		return release, nil
 	}
 
-	return fetchFromBackend()
+	release, err := fetchFromBackend()
+	if err != nil {
+		return latestReleaseResponse{}, errors.Join(ghErr, err)
+	}
+	return release, nil
 }
 
 type githubRelease struct {
@@ -184,12 +188,14 @@ func fetchFromGitHub() (latestReleaseResponse, error) {
 		return latestReleaseResponse{}, fmt.Errorf("invalid GitHub release version: %w", err)
 	}
 
-	assetName := fmt.Sprintf("save-to-spotify-%s-%s-v%s.zip", runtime.GOOS, runtime.GOARCH, latest)
 	var assetURL string
-	for _, a := range gh.Assets {
-		if a.Name == assetName {
-			assetURL = a.BrowserDownloadURL
-			break
+	if baseName, err := currentBinaryAssetName(); err == nil {
+		assetName := fmt.Sprintf("%s-v%s.zip", baseName, latest)
+		for _, a := range gh.Assets {
+			if a.Name == assetName {
+				assetURL = a.BrowserDownloadURL
+				break
+			}
 		}
 	}
 
@@ -219,7 +225,7 @@ func fetchFromBackend() (latestReleaseResponse, error) {
 
 	resp, err := (&http.Client{
 		Timeout:   releaseMetadataTimeout,
-		Transport: httpx.UserAgentTransport{UserAgent: cliUserAgent()},
+		Transport: backendTransport(),
 	}).Do(req)
 	if err != nil {
 		return latestReleaseResponse{}, fmt.Errorf("failed to check for updates: %w", err)
@@ -361,9 +367,6 @@ func normalizeVersion(v string) string {
 
 func validatedVersion(raw string) (string, error) {
 	v := normalizeVersion(raw)
-	if v == "" {
-		return "", fmt.Errorf("empty version")
-	}
 	if _, err := parseVersion(v); err != nil {
 		return "", err
 	}
@@ -398,7 +401,7 @@ func downloadUpdate(release latestReleaseResponse) error {
 		return err
 	}
 	if release.AssetURL == "" {
-		return fmt.Errorf("update failed: backend did not supply an asset URL")
+		return fmt.Errorf("update failed: release did not include an asset URL for %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 
 	info("Downloading v%s (%s-%s)...\n", release.Version, runtime.GOOS, runtime.GOARCH)

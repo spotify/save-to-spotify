@@ -100,10 +100,11 @@ func TestParseShowCreateFlags_UnknownFlag(t *testing.T) {
 
 func TestShowCreateRequestJSON(t *testing.T) {
 	req := showCreateRequest{
-		Title:      "My Show",
-		Summary:    "Description",
-		Language:   "en",
-		ImageToken: "tok_abc123",
+		Title:           "My Show",
+		Summary:         "Description",
+		Language:        "en",
+		ImageToken:      "tok_abc123",
+		PlaybackControl: "PLAYBACK_CONTROL_CHAPTER_SKIP",
 	}
 
 	data, err := json.Marshal(req)
@@ -117,14 +118,14 @@ func TestShowCreateRequestJSON(t *testing.T) {
 	}
 
 	// Verify JSON keys match API spec
-	expectedKeys := []string{"title", "summary", "language", "image_token"}
+	expectedKeys := []string{"title", "summary", "language", "image_token", "playback_control"}
 	for _, key := range expectedKeys {
 		if _, ok := raw[key]; !ok {
 			t.Errorf("missing JSON key %q", key)
 		}
 	}
 
-	// image_token should be omitted when empty
+	// image_token and playback_control should be omitted when empty
 	req2 := showCreateRequest{
 		Title:    "No Image",
 		Summary:  "Desc",
@@ -136,14 +137,68 @@ func TestShowCreateRequestJSON(t *testing.T) {
 	if _, ok := raw2["image_token"]; ok {
 		t.Error("image_token should be omitted when empty")
 	}
+	if _, ok := raw2["playback_control"]; ok {
+		t.Error("playback_control should be omitted when empty")
+	}
+}
+
+func TestParseShowCreateFlags_PlaybackControl(t *testing.T) {
+	f, err := parseShowCreateFlags([]string{
+		"--title", "Show",
+		"--playback-control", "chapter-skip",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if f.playbackControl != "chapter-skip" {
+		t.Errorf("playbackControl = %q, want %q", f.playbackControl, "chapter-skip")
+	}
+	if f.playbackControlAPI != "PLAYBACK_CONTROL_CHAPTER_SKIP" {
+		t.Errorf("playbackControlAPI = %q, want %q", f.playbackControlAPI, "PLAYBACK_CONTROL_CHAPTER_SKIP")
+	}
+
+	if _, err := parseShowCreateFlags([]string{
+		"--title", "Show",
+		"--playback-control", "bogus",
+	}); err == nil {
+		t.Fatal("expected error for unknown playback control mode")
+	}
+
+	if _, err := parseShowCreateFlags([]string{
+		"--title", "Show",
+		"--playback-control",
+	}); err == nil {
+		t.Fatal("expected error for missing --playback-control value")
+	}
+}
+
+// setupShowsTest saves a valid token under a temp config dir and points the
+// backend at a mock server running handler. Cleanup is automatic.
+func setupShowsTest(t *testing.T, handler http.HandlerFunc) {
+	t.Helper()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+
+	token := &config.TokenData{
+		AccessToken:  "test-token",
+		RefreshToken: "test-refresh",
+		TokenType:    "Bearer",
+		ExpiresAt:    time.Now().Add(24 * time.Hour),
+		Scopes:       "user-read-private",
+	}
+	if err := config.SaveToken(token); err != nil {
+		t.Fatal(err)
+	}
+
+	original := config.BackendBaseURL
+	config.BackendBaseURL = server.URL
+	t.Cleanup(func() { config.BackendBaseURL = original })
 }
 
 func TestHandleShowsCreate_Integration(t *testing.T) {
-	tmp := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", tmp)
-
-	// Mock backend API server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	setupShowsTest(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/shows" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 			http.Error(w, "not found", 404)
@@ -164,7 +219,6 @@ func TestHandleShowsCreate_Integration(t *testing.T) {
 			t.Errorf("Authorization = %q", r.Header.Get("Authorization"))
 		}
 
-		// Parse request body
 		var body showCreateRequest
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode body: %v", err)
@@ -174,29 +228,15 @@ func TestHandleShowsCreate_Integration(t *testing.T) {
 		if body.Title != "Test Show" {
 			t.Errorf("title = %q", body.Title)
 		}
+		if body.PlaybackControl != "" {
+			t.Errorf("playback_control = %q, want empty when flag is unset", body.PlaybackControl)
+		}
 
 		w.WriteHeader(201)
 		json.NewEncoder(w).Encode(showCreateResponse{
 			ShowURI: "spotify:show:abc123",
 		})
-	}))
-	defer server.Close()
-
-	// Save a valid token
-	token := &config.TokenData{
-		AccessToken:  "test-token",
-		RefreshToken: "test-refresh",
-		TokenType:    "Bearer",
-		Scopes:       "user-read-private",
-	}
-	token.ExpiresAt = time.Now().Add(24 * time.Hour)
-	if err := config.SaveToken(token); err != nil {
-		t.Fatal(err)
-	}
-
-	original := config.BackendBaseURL
-	config.BackendBaseURL = server.URL
-	t.Cleanup(func() { config.BackendBaseURL = original })
+	})
 
 	err := handleShowsCreate([]string{
 		"--title", "Test Show",
@@ -208,10 +248,7 @@ func TestHandleShowsCreate_Integration(t *testing.T) {
 }
 
 func TestHandleShowsCreate_PrototypeDefaults(t *testing.T) {
-	tmp := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", tmp)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	setupShowsTest(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/shows" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 			http.Error(w, "not found", 404)
@@ -238,85 +275,47 @@ func TestHandleShowsCreate_PrototypeDefaults(t *testing.T) {
 		json.NewEncoder(w).Encode(showCreateResponse{
 			ShowURI: "spotify:show:def456",
 		})
-	}))
-	defer server.Close()
-
-	token := &config.TokenData{
-		AccessToken:  "test-token",
-		RefreshToken: "test-refresh",
-		TokenType:    "Bearer",
-		Scopes:       "user-read-private",
-	}
-	token.ExpiresAt = time.Now().Add(24 * time.Hour)
-	if err := config.SaveToken(token); err != nil {
-		t.Fatal(err)
-	}
-
-	original := config.BackendBaseURL
-	config.BackendBaseURL = server.URL
-	t.Cleanup(func() { config.BackendBaseURL = original })
+	})
 
 	// Only pass --title -- everything else should be defaulted
-	err := handleShowsCreate([]string{"--title", "Minimal Show"})
-	if err != nil {
+	if err := handleShowsCreate([]string{"--title", "Minimal Show"}); err != nil {
 		t.Fatalf("handleShowsCreate: %v", err)
 	}
 }
 
 func TestHandleShowsCreate_JSONOutput(t *testing.T) {
-	tmp := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", tmp)
-
 	config.SetJSONMode()
 	t.Cleanup(config.ResetJSONMode)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	setupShowsTest(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/shows" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 			http.Error(w, "not found", 404)
 			return
 		}
+		var body showCreateRequest
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode body: %v", err)
+			http.Error(w, "bad request", 400)
+			return
+		}
+		if body.PlaybackControl != "PLAYBACK_CONTROL_CHAPTER_SKIP" {
+			t.Errorf("playback_control = %q, want %q", body.PlaybackControl, "PLAYBACK_CONTROL_CHAPTER_SKIP")
+		}
 		w.WriteHeader(201)
 		json.NewEncoder(w).Encode(showCreateResponse{
-			ShowURI: "spotify:show:json123",
+			ShowURI:         "spotify:show:json123",
+			PlaybackControl: "PLAYBACK_CONTROL_CHAPTER_SKIP",
 		})
-	}))
-	defer server.Close()
-
-	token := &config.TokenData{
-		AccessToken:  "test-token",
-		RefreshToken: "test-refresh",
-		TokenType:    "Bearer",
-		ExpiresAt:    time.Now().Add(24 * time.Hour),
-		Scopes:       "user-read-private",
-	}
-	if err := config.SaveToken(token); err != nil {
-		t.Fatal(err)
-	}
-
-	original := config.BackendBaseURL
-	config.BackendBaseURL = server.URL
-	t.Cleanup(func() { config.BackendBaseURL = original })
-
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	err := handleShowsCreate([]string{
-		"--title", "JSON Show",
-		"--summary", "A test",
 	})
 
-	w.Close()
-	os.Stdout = old
-
-	if err != nil {
-		t.Fatalf("handleShowsCreate: %v", err)
-	}
-
-	buf := make([]byte, 4096)
-	n, _ := r.Read(buf)
-	output := string(buf[:n])
+	output := captureOutput(t, func() error {
+		return handleShowsCreate([]string{
+			"--title", "JSON Show",
+			"--summary", "A test",
+			"--playback-control", "chapter-skip",
+		})
+	})
 
 	var parsed map[string]interface{}
 	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
@@ -325,6 +324,42 @@ func TestHandleShowsCreate_JSONOutput(t *testing.T) {
 
 	if parsed["show_uri"] != "spotify:show:json123" {
 		t.Errorf("show_uri = %v", parsed["show_uri"])
+	}
+	if parsed["playback_control"] != "chapter-skip" {
+		t.Errorf("playback_control = %v, want %q", parsed["playback_control"], "chapter-skip")
+	}
+}
+
+// The backend silently drops playback control values it doesn't recognize:
+// the create still succeeds, and the missing echo in the response is the only
+// failure signal. The CLI must not fabricate the field in that case.
+func TestHandleShowsCreate_PlaybackControlNotConfirmed(t *testing.T) {
+	config.SetJSONMode()
+	t.Cleanup(config.ResetJSONMode)
+
+	setupShowsTest(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(201)
+		json.NewEncoder(w).Encode(showCreateResponse{
+			ShowURI: "spotify:show:drop123",
+		})
+	})
+
+	output := captureOutput(t, func() error {
+		return handleShowsCreate([]string{
+			"--title", "Dropped Show",
+			"--playback-control", "chapter-skip",
+		})
+	})
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
+		t.Fatalf("output is not valid JSON: %v\noutput: %s", err, output)
+	}
+	if parsed["show_uri"] != "spotify:show:drop123" {
+		t.Errorf("show_uri = %v", parsed["show_uri"])
+	}
+	if _, ok := parsed["playback_control"]; ok {
+		t.Errorf("playback_control = %v, must be absent when the server did not confirm it", parsed["playback_control"])
 	}
 }
 

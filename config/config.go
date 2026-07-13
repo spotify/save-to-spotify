@@ -5,25 +5,28 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
 
 const (
-	ClientID             = "76764a523fed47e381243dc19dee5804"
-	AuthURL              = "https://accounts.spotify.com/authorize"
-	RedirectURI          = "http://127.0.0.1:%d/callback"
-	RedirectPort         = 8085
-	EnvVarAuthToken      = "SAVE_TO_SPOTIFY_AUTH_TOKEN"
-	EnvVarBackendURL     = "SAVE_TO_SPOTIFY_BACKEND_URL"
-	EnvVarTimeout        = "SAVE_TO_SPOTIFY_TIMEOUT"
-	EnvVarClientID       = "SAVE_TO_SPOTIFY_CLIENT_ID"
-	EnvVarNoUpdateCheck  = "SAVE_TO_SPOTIFY_NO_UPDATE_CHECK"
+	ClientID                = "76764a523fed47e381243dc19dee5804"
+	AuthURL                 = "https://accounts.spotify.com/authorize"
+	RedirectURI             = "http://127.0.0.1:%d/callback"
+	RedirectPort            = 8085
+	EnvVarAuthToken         = "SAVE_TO_SPOTIFY_AUTH_TOKEN"
+	EnvVarBackendURL        = "SAVE_TO_SPOTIFY_BACKEND_URL"
+	EnvVarTimeout           = "SAVE_TO_SPOTIFY_TIMEOUT"
+	EnvVarClientID          = "SAVE_TO_SPOTIFY_CLIENT_ID"
+	EnvVarNoUpdateCheck     = "SAVE_TO_SPOTIFY_NO_UPDATE_CHECK"
 	EnvVarReleasesAPIURL    = "SAVE_TO_SPOTIFY_RELEASES_API_URL"
 	EnvVarGitHubReleasesURL = "SAVE_TO_SPOTIFY_GITHUB_RELEASES_URL"
+	EnvVarHeaders           = "SAVE_TO_SPOTIFY_HEADERS"
 
 	Scopes = "sts-content-management"
 
@@ -42,7 +45,8 @@ var BackendBaseURL = getBackendBaseURL()
 // GitHubReleasesURL is the GitHub Releases API URL for checking the latest CLI version.
 var GitHubReleasesURL = getGitHubReleasesURL()
 
-// ReleasesAPIURL is the full URL for fetching the latest release version.
+// ReleasesAPIURL is the backend URL for fetching the latest release version,
+// used as a fallback when the GitHub check fails.
 // Defaults to the backend service endpoint; override via SAVE_TO_SPOTIFY_RELEASES_API_URL.
 var ReleasesAPIURL = getReleasesAPIURL()
 
@@ -295,4 +299,98 @@ func GetClientID() string {
 		return id
 	}
 	return ClientID
+}
+
+// additionalHeaderPrefix is the canonical MIME form of the required "X-STS-"
+// header prefix. Keys are canonicalized before the prefix check, so any casing
+// of X-STS-* is accepted.
+const additionalHeaderPrefix = "X-Sts-"
+
+var additionalHeaders = parseAdditionalHeaders()
+
+// AdditionalHeaders returns extra HTTP headers to send on backend API requests.
+// Parsed from SAVE_TO_SPOTIFY_HEADERS, a JSON object of header name/value
+// pairs. Keys are in canonical MIME form. Only X-STS-* headers (any casing)
+// with valid HTTP header names and values are accepted; others are silently
+// dropped.
+func AdditionalHeaders() map[string]string { return additionalHeaders }
+
+// SetAdditionalHeaders replaces the additional backend headers, applying the
+// same X-STS-* validation as env parsing. Used in tests.
+func SetAdditionalHeaders(h map[string]string) { additionalHeaders = filterAdditionalHeaders(h) }
+
+func parseAdditionalHeaders() map[string]string {
+	raw := os.Getenv(EnvVarHeaders)
+	if raw == "" {
+		return nil
+	}
+
+	var entries map[string]string
+	if err := json.Unmarshal([]byte(raw), &entries); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %s contains invalid JSON, ignoring: %v\n", EnvVarHeaders, err)
+		return nil
+	}
+	return filterAdditionalHeaders(entries)
+}
+
+// filterAdditionalHeaders canonicalizes keys and keeps only valid X-STS-*
+// headers. Keys are visited in sorted order so two spellings of the same
+// header collapse deterministically.
+func filterAdditionalHeaders(in map[string]string) map[string]string {
+	keys := make([]string, 0, len(in))
+	for k := range in {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	headers := make(map[string]string)
+	for _, k := range keys {
+		key := textproto.CanonicalMIMEHeaderKey(strings.TrimSpace(k))
+		val := strings.TrimSpace(in[k])
+		if val == "" || !strings.HasPrefix(key, additionalHeaderPrefix) {
+			continue
+		}
+		if !isValidHeaderName(key) || !isValidHeaderValue(val) {
+			continue
+		}
+		headers[key] = val
+	}
+	if len(headers) == 0 {
+		return nil
+	}
+	return headers
+}
+
+// isValidHeaderName reports whether s is a valid RFC 7230 header field name
+// (a token). CanonicalMIMEHeaderKey returns invalid names unchanged, so names
+// it could not canonicalize are rejected here.
+func isValidHeaderName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case 'a' <= c && c <= 'z', 'A' <= c && c <= 'Z', '0' <= c && c <= '9':
+		case c == '!' || c == '#' || c == '$' || c == '%' || c == '&' || c == '\'' ||
+			c == '*' || c == '+' || c == '-' || c == '.' || c == '^' || c == '_' ||
+			c == '`' || c == '|' || c == '~':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// isValidHeaderValue reports whether s is a valid RFC 7230 header field value:
+// no control characters other than horizontal tab. A value that fails this
+// check would make net/http reject every request it is attached to.
+func isValidHeaderValue(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c < 0x20 && c != '\t') || c == 0x7f {
+			return false
+		}
+	}
+	return true
 }

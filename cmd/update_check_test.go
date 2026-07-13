@@ -18,14 +18,7 @@ func TestStartUpdateCheckNewVersion(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(githubRelease{TagName: "v9.9.9"})
-	}))
-	defer server.Close()
-
-	origGH := config.GitHubReleasesURL
-	config.GitHubReleasesURL = server.URL
-	defer func() { config.GitHubReleasesURL = origGH }()
+	newGitHubReleaseServer(t, "v9.9.9", nil)
 
 	stderr := captureStderr(t, func() {
 		StartUpdateCheck()()
@@ -39,14 +32,7 @@ func TestStartUpdateCheckCurrent(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(githubRelease{TagName: "v" + version})
-	}))
-	defer server.Close()
-
-	origGH := config.GitHubReleasesURL
-	config.GitHubReleasesURL = server.URL
-	defer func() { config.GitHubReleasesURL = origGH }()
+	newGitHubReleaseServer(t, "v"+version, nil)
 
 	stderr := captureStderr(t, func() {
 		StartUpdateCheck()()
@@ -74,9 +60,7 @@ func TestStartUpdateCheckCached(t *testing.T) {
 	}))
 	defer server.Close()
 
-	origGH := config.GitHubReleasesURL
-	config.GitHubReleasesURL = server.URL
-	defer func() { config.GitHubReleasesURL = origGH }()
+	overrideURL(t, &config.GitHubReleasesURL, server.URL)
 
 	captureStderr(t, func() {
 		StartUpdateCheck()()
@@ -105,9 +89,7 @@ func TestStartUpdateCheckStaleCache(t *testing.T) {
 	}))
 	defer server.Close()
 
-	origGH := config.GitHubReleasesURL
-	config.GitHubReleasesURL = server.URL
-	defer func() { config.GitHubReleasesURL = origGH }()
+	overrideURL(t, &config.GitHubReleasesURL, server.URL)
 
 	captureStderr(t, func() {
 		StartUpdateCheck()()
@@ -130,9 +112,7 @@ func TestStartUpdateCheckDisabled(t *testing.T) {
 	}))
 	defer server.Close()
 
-	origGH := config.GitHubReleasesURL
-	config.GitHubReleasesURL = server.URL
-	defer func() { config.GitHubReleasesURL = origGH }()
+	overrideURL(t, &config.GitHubReleasesURL, server.URL)
 
 	stderr := captureStderr(t, func() {
 		StartUpdateCheck()()
@@ -160,9 +140,7 @@ func TestStartUpdateCheckTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	origGH := config.GitHubReleasesURL
-	config.GitHubReleasesURL = server.URL
-	defer func() { config.GitHubReleasesURL = origGH }()
+	overrideURL(t, &config.GitHubReleasesURL, server.URL)
 
 	stderr := captureStderr(t, func() {
 		StartUpdateCheck()()
