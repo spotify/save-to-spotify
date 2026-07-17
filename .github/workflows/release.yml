@@ -69,6 +69,7 @@ jobs:
       matrix:
         include:
           - { os: macos-latest, binary: save-to-spotify-darwin-arm64 }
+          - { os: macos-latest, binary: save-to-spotify-darwin-amd64, prefix: arch -x86_64 }
           - { os: ubuntu-latest, binary: save-to-spotify-linux-amd64 }
           - { os: ubuntu-24.04-arm, binary: save-to-spotify-linux-arm64 }
           - { os: windows-latest, binary: save-to-spotify-windows-amd64.exe }
@@ -83,18 +84,12 @@ jobs:
       - name: Run binary on native platform
         shell: bash
         run: |
-          chmod +x "dist/${{ matrix.binary }}" 2>/dev/null || true
-          "./dist/${{ matrix.binary }}" --version
-
-      - name: Run darwin-amd64 under Rosetta
-        if: matrix.os == 'macos-latest'
-        run: |
-          chmod +x dist/save-to-spotify-darwin-amd64
-          arch -x86_64 ./dist/save-to-spotify-darwin-amd64 --version
+          chmod +x "dist/${{ matrix.binary }}"
+          ${{ matrix.prefix }} "./dist/${{ matrix.binary }}" --version
 
   release:
     needs: verify
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
@@ -108,8 +103,10 @@ jobs:
           path: dist
 
       - name: Package binaries with agent skill
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
-          version="$(git describe --tags --always 2>/dev/null | sed 's/^v//' || echo "dev")"
+          version="${TAG#v}"
           skills_src="$(pwd)/plugin/skills"
           cd dist
           dist_dir="$(pwd)"
