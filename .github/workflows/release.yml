@@ -68,8 +68,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-latest, binary: save-to-spotify-darwin-arm64 }
-          - { os: macos-latest, binary: save-to-spotify-darwin-amd64, prefix: arch -x86_64 }
+          - { os: macos-26, binary: save-to-spotify-darwin-arm64 }
+          - { os: macos-26-intel, binary: save-to-spotify-darwin-amd64 }
           - { os: ubuntu-latest, binary: save-to-spotify-linux-amd64 }
           - { os: ubuntu-24.04-arm, binary: save-to-spotify-linux-arm64 }
           - { os: windows-latest, binary: save-to-spotify-windows-amd64.exe }
@@ -85,7 +85,7 @@ jobs:
         shell: bash
         run: |
           chmod +x "dist/${{ matrix.binary }}"
-          ${{ matrix.prefix }} "./dist/${{ matrix.binary }}" --version
+          "./dist/${{ matrix.binary }}" --version
 
   release:
     needs: verify
