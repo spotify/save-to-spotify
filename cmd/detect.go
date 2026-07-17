@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/spotify/save-to-spotify/auth"
 	"github.com/spotify/save-to-spotify/config"
 )
 
@@ -477,12 +478,19 @@ func detectBinary() SystemCheck {
 }
 
 // isHeadless returns true when running in a non-interactive environment.
+// Two-tier design: this is the entry point that short-circuits on the
+// unambiguous remote signal (SSH), then delegates the nuanced per-platform
+// detection to canOpenBrowserWith — the parameterized, unit-tested half.
 func isHeadless() bool {
 	// SSH_TTY is Unix-only; Windows OpenSSH sessions set SSH_CLIENT /
-	// SSH_CONNECTION but not SSH_TTY.
-	for _, v := range []string{"SSH_TTY", "SSH_CLIENT", "SSH_CONNECTION"} {
-		if os.Getenv(v) != "" {
-			return true
+	// SSH_CONNECTION but not SSH_TTY. An SSH session with a forwarded X
+	// display (ssh -X, DISPLAY set) CAN open a browser on the user's
+	// screen, so only short-circuit when there is no display.
+	if os.Getenv("DISPLAY") == "" {
+		for _, v := range []string{"SSH_TTY", "SSH_CLIENT", "SSH_CONNECTION"} {
+			if os.Getenv(v) != "" {
+				return true
+			}
 		}
 	}
 	return !canOpenBrowser()
@@ -493,7 +501,9 @@ func canOpenBrowser() bool {
 }
 
 // canOpenBrowserWith holds the platform/environment decision behind browser
-// launches, parameterized for unit testing.
+// launches. Parameterized (rather than the package-var swapping used by the
+// HTTP test seams) so tests never mutate the real process environment or
+// exec.LookPath behavior.
 func canOpenBrowserWith(goos string, getenv func(string) string, lookPath func(string) (string, error)) bool {
 	// CI runners have working `open`/`start` commands but no one watching a
 	// browser — treat CI as headless on every platform. CI is a boolean:
@@ -506,15 +516,15 @@ func canOpenBrowserWith(goos string, getenv func(string) string, lookPath func(s
 	}
 	switch goos {
 	case "darwin":
-		// `open` always exists on macOS and proves nothing about launchd
-		// daemons/agents, which have no WindowServer access. Interactive
-		// sessions (terminals, terminal-hosted agents) carry TERM or
-		// TERM_PROGRAM; launchd's minimal environment carries neither.
-		if getenv("TERM") == "" && getenv("TERM_PROGRAM") == "" {
-			return false
-		}
-		_, err := lookPath("open")
-		return err == nil
+		// `open` always exists on macOS (no point probing for it) and
+		// proves nothing about launchd daemons/agents, which have no
+		// WindowServer access. Interactive sessions (terminals,
+		// terminal-hosted agents) carry TERM or TERM_PROGRAM; launchd's
+		// minimal environment carries neither. This may misclassify
+		// GUI-launched embedders (no TERM) as headless — acceptable
+		// because the auth flow degrades to the manual-URL mode, and
+		// programmatic callers should pass --no-browser anyway.
+		return getenv("TERM") != "" || getenv("TERM_PROGRAM") != ""
 	case "windows":
 		// Interactive sessions carry SESSIONNAME (Console, RDP-Tcp#N);
 		// services and scheduled tasks don't.
@@ -525,7 +535,7 @@ func canOpenBrowserWith(goos string, getenv func(string) string, lookPath func(s
 		if getenv("DISPLAY") == "" && getenv("WAYLAND_DISPLAY") == "" {
 			return false
 		}
-		for _, opener := range []string{"xdg-open", "sensible-browser", "x-www-browser", "gnome-open"} {
+		for _, opener := range auth.LinuxOpeners {
 			if _, err := lookPath(opener); err == nil {
 				return true
 			}
