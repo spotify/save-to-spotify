@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -488,29 +489,44 @@ func isHeadless() bool {
 }
 
 func canOpenBrowser() bool {
+	return canOpenBrowserWith(runtime.GOOS, os.Getenv, exec.LookPath)
+}
+
+// canOpenBrowserWith holds the platform/environment decision behind browser
+// launches, parameterized for unit testing.
+func canOpenBrowserWith(goos string, getenv func(string) string, lookPath func(string) (string, error)) bool {
 	// CI runners have working `open`/`start` commands but no one watching a
-	// browser — treat any CI environment as headless on every platform.
-	if os.Getenv("CI") != "" {
-		return false
+	// browser — treat CI as headless on every platform. CI is a boolean:
+	// CI=false / CI=0 explicitly opts out; any other non-empty value
+	// (true, 1, yes, ...) means a CI environment.
+	if v := getenv("CI"); v != "" {
+		if b, err := strconv.ParseBool(v); err != nil || b {
+			return false
+		}
 	}
-	switch runtime.GOOS {
+	switch goos {
 	case "darwin":
-		// `open` always exists on macOS; it proves nothing about launchd
-		// jobs or CI VMs — the CI check above covers the common case.
-		_, err := exec.LookPath("open")
+		// `open` always exists on macOS and proves nothing about launchd
+		// daemons/agents, which have no WindowServer access. Interactive
+		// sessions (terminals, terminal-hosted agents) carry TERM or
+		// TERM_PROGRAM; launchd's minimal environment carries neither.
+		if getenv("TERM") == "" && getenv("TERM_PROGRAM") == "" {
+			return false
+		}
+		_, err := lookPath("open")
 		return err == nil
 	case "windows":
 		// Interactive sessions carry SESSIONNAME (Console, RDP-Tcp#N);
 		// services and scheduled tasks don't.
-		return os.Getenv("SESSIONNAME") != ""
+		return getenv("SESSIONNAME") != ""
 	case "linux":
 		// An opener binary alone proves nothing in containers and
 		// services — require a display session too.
-		if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
+		if getenv("DISPLAY") == "" && getenv("WAYLAND_DISPLAY") == "" {
 			return false
 		}
 		for _, opener := range []string{"xdg-open", "sensible-browser", "x-www-browser", "gnome-open"} {
-			if _, err := exec.LookPath(opener); err == nil {
+			if _, err := lookPath(opener); err == nil {
 				return true
 			}
 		}
