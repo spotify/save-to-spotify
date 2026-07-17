@@ -18,13 +18,13 @@ Pin a version or change the install directory:
 
 ```shell
 # Specific version
-curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --version 0.1.4
+curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --version 0.1.5
 
 # Custom directory
 curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --dir ~/.local/bin
 
 # Via environment variables
-SAVE_TO_SPOTIFY_VERSION=0.1.4 SAVE_TO_SPOTIFY_INSTALL_DIR=~/.local/bin \
+SAVE_TO_SPOTIFY_VERSION=0.1.5 SAVE_TO_SPOTIFY_INSTALL_DIR=~/.local/bin \
   curl -fsSL https://saveto.spotify.com/install.sh | bash
 ```
 
