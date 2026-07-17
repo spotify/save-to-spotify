@@ -5,14 +5,14 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  release:
+  build:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -46,7 +46,7 @@ jobs:
         run: |
           ./scripts/sign-and-notarize.sh dist/save-to-spotify-darwin-arm64 dist/save-to-spotify-darwin-amd64
 
-      - name: Verify macOS binaries are loadable
+      - name: Verify macOS binaries have LC_UUID
         run: |
           for binary in dist/save-to-spotify-darwin-arm64 dist/save-to-spotify-darwin-amd64; do
             if ! otool -l "$binary" | grep -q LC_UUID; then
@@ -54,8 +54,58 @@ jobs:
               exit 1
             fi
           done
-          ./dist/save-to-spotify-darwin-arm64 --version
+
+      - name: Upload binaries for verification and packaging
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  verify:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, binary: save-to-spotify-darwin-arm64 }
+          - { os: ubuntu-latest, binary: save-to-spotify-linux-amd64 }
+          - { os: ubuntu-24.04-arm, binary: save-to-spotify-linux-arm64 }
+          - { os: windows-latest, binary: save-to-spotify-windows-amd64.exe }
+          - { os: windows-11-arm, binary: save-to-spotify-windows-arm64.exe }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      - name: Run binary on native platform
+        shell: bash
+        run: |
+          chmod +x "dist/${{ matrix.binary }}" 2>/dev/null || true
+          "./dist/${{ matrix.binary }}" --version
+
+      - name: Run darwin-amd64 under Rosetta
+        if: matrix.os == 'macos-latest'
+        run: |
+          chmod +x dist/save-to-spotify-darwin-amd64
           arch -x86_64 ./dist/save-to-spotify-darwin-amd64 --version
+
+  release:
+    needs: verify
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
 
       - name: Package binaries with agent skill
         run: |
@@ -69,6 +119,7 @@ jobs:
 
             stage="$(mktemp -d)"
             cp "$binary" "$stage/$inner"
+            chmod +x "$stage/$inner"
             cp -R "$skills_src" "$stage/skills"
 
             base="${binary%.exe}"
