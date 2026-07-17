@@ -153,10 +153,10 @@ Key voices: `en-US-AriaNeural` (F), `en-US-GuyNeural` (M), `en-GB-SoniaNeural` (
 from openai import OpenAI
 client = OpenAI()
 resp = client.audio.speech.create(model="tts-1", voice="nova", input="Text")
-resp.stream_to_file("output.mp3")
+resp.write_to_file("output.mp3")
 ```
 
-Voices: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`. Use `tts-1-hd` for higher quality.
+Voices: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`. Use `tts-1-hd` for higher quality. (Older `stream_to_file` is deprecated in current SDK versions.)
 
 ### ElevenLabs
 

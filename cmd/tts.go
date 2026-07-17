@@ -626,6 +626,10 @@ func openaiBaseURL() string {
 	return "https://api.openai.com/v1"
 }
 
+// ELEVENLABS_BASE_URL is scheme + host only (no /v1 suffix) — callers
+// prepend /v1/<endpoint> themselves. This matches the ElevenLabs SDK
+// convention and deliberately differs from OPENAI_BASE_URL above; do not
+// "align" them.
 func elevenlabsBaseURL() string {
 	if v := os.Getenv("ELEVENLABS_BASE_URL"); v != "" {
 		return strings.TrimRight(v, "/")
