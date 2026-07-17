@@ -19,7 +19,7 @@ Quick spec workflow:
 ```shell
 SPEC_URL="https://developer.spotify.com/reference/web-api/open-api-schema.yaml"
 curl -fsSL "$SPEC_URL" -o spotify-openapi.yaml
-rg -n "^  /search:|operationId: search|get-an-album|get-an-artists-albums" spotify-openapi.yaml
+rg -n "^  /search:|operationId: search" spotify-openapi.yaml
 ```
 
 ## Getting a bearer token
@@ -109,21 +109,9 @@ Albums and tracks support the field-qualified form above. Artists, playlists, sh
 
 Podcast episode results are noisier than track and album search; verify the top hit's `show.name` field before accepting.
 
-## Useful catalog endpoints
+## Search is the only endpoint you need
 
-Use the OpenAPI schema before expanding this list, but these are the common calls for timeline entity resolution:
-
-| Need                                      | Endpoint                                                                          |
-|-------------------------------------------|-----------------------------------------------------------------------------------|
-| Search any catalog type                   | `GET /v1/search?q=...&type=album,track,artist,playlist,show,episode`              |
-| Full album / track / artist metadata      | `GET /v1/albums/{id}`, `GET /v1/tracks/{id}`, or `GET /v1/artists/{id}`           |
-| Artist's recent albums, excluding singles | `GET /v1/artists/{id}/albums?include_groups=album&limit=50`                       |
-| Playlist metadata and tracks              | `GET /v1/playlists/{id}`                                                          |
-| Show / episode metadata                   | `GET /v1/shows/{id}` or `GET /v1/episodes/{id}` with `market=<ISO country>`       |
-| Show's episode list                       | `GET /v1/shows/{id}/episodes?market=<ISO country>&limit=50`                       |
-| New Releases, editorial albums only       | `GET /v1/browse/new-releases?country=US&limit=50`                                 |
-
-For endpoints with a `market` parameter, use an ISO 3166-1 alpha-2 country code when needed. With a valid user access token, the country associated with the user account takes priority over the query parameter; see the OpenAPI `QueryMarket` parameter before adding market-specific logic.
+`GET /v1/search` covers the core use case end to end: it returns URIs, names, images, artists, release dates, and `show.name` for episodes — everything needed for disambiguation and confidence scoring. A typical episode does 10–20 lookups, and search handles all of them. Do not reach for individual entity endpoints (`/albums/{id}`, `/tracks/{id}`, `/artists/{id}`, `/playlists/{id}`, `/shows/{id}`, `/episodes/{id}`, `/artists/{id}/albums`, `/shows/{id}/episodes`, `/browse/new-releases`) — they only add value in rare edge cases (e.g. "their latest album" without a name, or an episode search that fails by show name). If you hit a real resolution gap search can't close, consult the OpenAPI schema for the specific endpoint rather than defaulting to it.
 
 ## Fallbacks and non-Spotify data
 

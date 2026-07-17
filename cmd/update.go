@@ -396,8 +396,8 @@ func compareStrings(a, b string) int {
 }
 
 func downloadUpdate(release latestReleaseResponse) error {
-	binaryName, err := currentBinaryAssetName()
-	if err != nil {
+	// Early platform validation before any download work.
+	if _, err := currentBinaryAssetName(); err != nil {
 		return err
 	}
 	if release.AssetURL == "" {
@@ -427,7 +427,7 @@ func downloadUpdate(release latestReleaseResponse) error {
 	}
 	info("Verifying checksum... ok\n")
 
-	binary, err := extractBinary(binaryData, binaryName)
+	binary, err := extractBinary(binaryData)
 	if err != nil {
 		return fmt.Errorf("failed to extract update: %w", err)
 	}
@@ -438,7 +438,7 @@ func downloadUpdate(release latestReleaseResponse) error {
 // extractBinary returns the executable payload from a downloaded asset. If the
 // asset is a zip, the single contained file is returned; otherwise the bytes
 // are returned unchanged.
-func extractBinary(data []byte, binaryName string) ([]byte, error) {
+func extractBinary(data []byte) ([]byte, error) {
 	if !isZip(data) {
 		return data, nil
 	}
@@ -446,22 +446,22 @@ func extractBinary(data []byte, binaryName string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open zip asset: %w", err)
 	}
+	// Release archives contain the executable as save-to-spotify (Unix) or
+	// save-to-spotify.exe (Windows) alongside a skills/ tree — match the
+	// executable names only; a positional fallback could grab a skill file.
 	var match *zip.File
 	for _, f := range r.File {
 		if f.FileInfo().IsDir() {
 			continue
 		}
 		base := filepath.Base(f.Name)
-		if base == binaryName || base == binName {
+		if base == binName || base == binName+".exe" {
 			match = f
 			break
 		}
-		if match == nil {
-			match = f
-		}
 	}
 	if match == nil {
-		return nil, fmt.Errorf("zip asset is empty")
+		return nil, fmt.Errorf("no %s executable found in the release archive", binName)
 	}
 	rc, err := match.Open()
 	if err != nil {
@@ -475,9 +475,13 @@ func isZip(data []byte) bool {
 	return len(data) >= 4 && data[0] == 'P' && data[1] == 'K' && data[2] == 0x03 && data[3] == 0x04
 }
 
+// currentBinaryAssetName returns the published archive stem for this
+// platform (save-to-spotify-<os>-<arch>). The release workflow names the
+// zip <stem>-v<version>.zip on every platform — the .exe suffix exists only
+// on the executable inside the Windows archive, never on the archive name.
 func currentBinaryAssetName() (string, error) {
 	switch runtime.GOOS {
-	case "darwin", "linux":
+	case "darwin", "linux", "windows":
 	default:
 		return "", fmt.Errorf("unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
@@ -558,11 +562,40 @@ func installInPlace(newBinary []byte, exe string) error {
 		_ = os.Remove(tmpPath)
 		return wrapUpdatePathError(err, tmpPath)
 	}
+	// Windows locks a running executable: renaming over it fails. Move the
+	// running binary aside first, then move the new one in. The .old file
+	// can't be deleted while the process runs; sweep it on the next start.
+	if runtime.GOOS == "windows" {
+		oldPath := exe + ".old"
+		_ = os.Remove(oldPath)
+		if err := os.Rename(exe, oldPath); err != nil {
+			_ = os.Remove(tmpPath)
+			return wrapUpdatePathError(err, exe)
+		}
+		if err := os.Rename(tmpPath, exe); err != nil {
+			// Try to restore the original binary.
+			_ = os.Rename(oldPath, exe)
+			_ = os.Remove(tmpPath)
+			return wrapUpdatePathError(err, exe)
+		}
+		return nil
+	}
 	if err := os.Rename(tmpPath, exe); err != nil {
 		_ = os.Remove(tmpPath)
 		return wrapUpdatePathError(err, exe)
 	}
 	return nil
+}
+
+// sweepOldUpdateBinary removes the leftover .old binary from a previous
+// Windows self-update, where the running executable cannot delete itself.
+func sweepOldUpdateBinary() {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	if exe, err := os.Executable(); err == nil {
+		_ = os.Remove(exe + ".old")
+	}
 }
 
 func wrapUpdatePathError(err error, path string) error {

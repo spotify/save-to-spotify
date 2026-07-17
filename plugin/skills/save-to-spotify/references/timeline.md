@@ -125,7 +125,7 @@ Generate one or more images per chapter from a themed prompt. File naming must m
 
 ```python
 from openai import OpenAI
-import urllib.request, subprocess, string
+import urllib.request, subprocess, string, tempfile
 
 client = OpenAI()
 
@@ -146,7 +146,7 @@ for idx, (_, prompts) in enumerate(chapter_images):
     for slot_letter, prompt in zip(string.ascii_lowercase, prompts):
         resp = client.images.generate(model="dall-e-3", prompt=prompt,
                                       size="1024x1024", quality="standard", n=1)
-        tmp = f"/tmp/raw_{idx}_{slot_letter}.png"
+        tmp = os.path.join(tempfile.gettempdir(), f"raw_{idx}_{slot_letter}.png")
         urllib.request.urlretrieve(resp.data[0].url, tmp)
         out = f"img_{idx:02d}_{slot_letter}.jpg"
         # Downsize + re-encode to guarantee <= 1 MB, <= 4096x4096, .jpg

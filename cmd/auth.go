@@ -83,6 +83,11 @@ Flags:
 		}
 	}
 
+	if !noBrowser && isHeadless() {
+		info("Detected headless environment — using manual auth flow.\n")
+		noBrowser = true
+	}
+
 	verifier, err := auth.GenerateCodeVerifier()
 	if err != nil {
 		return fmt.Errorf("failed to generate code verifier: %w", err)

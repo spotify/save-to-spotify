@@ -229,10 +229,7 @@ func handleUpload(args []string) error {
 		}{result.EpisodeURI, flags.title, result.Status})
 	}
 
-	fmt.Println("Episode created successfully.")
-	fmt.Printf("  URI:    %s\n", result.EpisodeURI)
-	fmt.Printf("  Title:  %s\n", flags.title)
-	fmt.Printf("  Status: %s\n", result.Status)
+	printEpisodeCreated(result.EpisodeURI, flags.title, result.Status)
 
 	return nil
 }

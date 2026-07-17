@@ -2,6 +2,31 @@
 
 A command-line tool for saving audio content to Spotify. Built for agents and automation, generate a daily briefing, language lesson, or meeting recap, then push it to Spotify where it's available alongside your other listening.
 
+## What you can make
+
+Point your agent at content you have, and get a finished episode on Spotify:
+
+- **Morning briefing** — your calendar, tasks, and overnight repo activity as a 3-minute daily brief
+- **Deep dive** — turn a topic, article, or PDF into a personalized audio explainer
+- **Meeting recap** — drop in a transcript, get a 2-minute summary with action items
+- **Travel guide** — a private audio itinerary for your next trip
+- **News roundup** — a daily roundup from the newsletters, feeds, and sites you follow
+- **Bedtime story** — a custom story using your kid's name and favorite setting
+
+Describe what you want in plain English; the agent sources, scripts, narrates, and saves it.
+
+## Making the audio
+
+This CLI *saves* audio to Spotify — it does not generate speech itself. You bring a voice engine:
+
+- **Kokoro** (recommended) — free, local, no API key, no limits (~340 MB)
+- **OpenAI TTS** — high quality, needs `OPENAI_API_KEY`
+- **ElevenLabs** — most natural, needs `ELEVENLABS_API_KEY`
+
+No key? Kokoro is the default. Already have an OpenAI or ElevenLabs key? The agent detects it and offers to use it — no extra setup.
+
+Run `save-to-spotify tts status` to see what's available, or `save-to-spotify tts add` to register any other engine.
+
 ## Quick Start
 
 Prompt your agent to install:
@@ -28,7 +53,7 @@ Common options:
 
 ```bash
 # Pin a specific version
-curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --version 0.1.5
+curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --version 0.2.0
 
 # Custom install directory
 curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --dir ~/.local/bin
@@ -69,11 +94,16 @@ If you can't run the install script:
 1. Download `save-to-spotify-{os}-{arch}-v{version}.zip` and its matching `.sha256` from the [releases page](https://github.com/spotify/save-to-spotify/releases).
 2. Verify integrity:
    ```bash
-   shasum -c save-to-spotify-darwin-arm64-v0.1.5.zip.sha256
+   shasum -c save-to-spotify-darwin-arm64-v0.2.0.zip.sha256
    ```
 3. Unzip, you get the binary plus a `skills/save-to-spotify/` tree.
-4. Move the binary to a directory on your `PATH` and `chmod +x` it.
+4. Move the binary to a directory on your `PATH` and `chmod +x` it (not needed on Windows).
 5. (Optional) Copy `skills/save-to-spotify/` into your agent's skill directory, e.g. `~/.claude/skills/save-to-spotify/` or `~/.cursor/skills/save-to-spotify/`.
+
+### Windows notes
+
+- Run the install script in **Git Bash** (ships with Git for Windows); it installs `save-to-spotify.exe` to `~/.local/bin` and offers a PATH fix.
+- The Windows binaries are not code-signed yet: SmartScreen may block the first run. Unblock with right-click → Properties → Unblock, or `Unblock-File save-to-spotify.exe` in PowerShell.
 
 ### Build from source
 

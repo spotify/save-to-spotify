@@ -37,6 +37,8 @@ If `save-to-spotify` is not available on `PATH`, ask the user to confirm CLI ins
 curl -fsSL https://saveto.spotify.com/install.sh | bash
 ```
 
+On Windows, run this in **Git Bash** (ships with Git for Windows) — it installs `save-to-spotify.exe` to `~/.local/bin`. The unsigned .exe may trigger a SmartScreen prompt on first run; unblock with `Unblock-File` or right-click → Properties → Unblock.
+
 See [references/cli-usage.md](references/cli-usage.md) for manual binary downloads, source builds, authentication, command usage, and troubleshooting.
 
 ---
@@ -75,47 +77,59 @@ Write collected data to disk after each sourcing step. If a later step fails, pr
 
 Don't fear strategic silence. Pauses between segments give the listener time to absorb. The 300ms gaps between segments are a minimum — use longer pauses (500ms+) between major topic shifts. Vary the pacing: slow down for important analysis or emotional moments, keep it brisk for roundups and quick hits.
 
+### The user made this
+
+In every user-facing string, emphasise what the user has created rather than you (the agent) taking credit. Strings should centre the user. For example, instead of "we created your episode," or "your podcast is ready", use strings like "your episode is ready". Reinforce that this is something the user made.
+
 ---
 
-## User Interview (MANDATORY)
+## First-Time Onboarding
 
-**Before doing any work, you MUST have a conversation with the user to confirm preferences.** Do not assume defaults. Ask, then STOP and wait for their reply. Do not proceed until they respond. Skipping the interview will feel efficient; don't. Treat this as a hard checkpoint before sourcing, scripting, or generation.
+Use the streamlined onboarding flow from [references/onboarding.md](references/onboarding.md) instead of the full interview below when **any** of these are true:
 
-At minimum, always confirm these before producing anything:
+1. The user has no shows (`save-to-spotify --json shows` returns an empty `shows` array)
+2. The user says things like "get started", "help me start", "first episode", "set up", "onboard me", or any phrasing that signals they want the guided experience — **even if they already have shows**
 
-1. **Content scope** — What sources, topics, or material to use
-2. **Language** — What language the episode should be in (do not assume from the source language)
-3. **Length** — How long the episode should be
-4. **TTS voice** — Which voice to use (offer options from [references/audio-providers.md](references/audio-providers.md))
-5. **Cover image style** — How to generate the cover image. Present these options (see [references/cover-image.md](references/cover-image.md) for full details):
-   - **User-provided** — the user supplies their own image file
-   - **AI-generated** (default when image tools available) — unique image themed to the episode content, text composited with Pillow
-   - **CDN artwork** (terminal fallback) — pre-designed abstract illustration from the STS CDN with Pillow typography. Always available
-6. **Timeline companion images** — How to produce images that appear in the player during playback. Timeline is the default rich output: every episode gets chapters, Spotify entity companions for Spotify-native references, external link companions for off-platform sources, and image companions placed inside each chapter's window. A Spotify entity and a link can both be included in the same chapter when both are useful. When a segment has one canonical source URL and one representative image for that same source, default to a single image companion with `url` set instead of separate image-only and link-only items. For images, present these options:
-   - **AI-generated** — DALL-E, Stable Diffusion, or the user's preferred image model, from a themed prompt per segment. Best when sources lack usable imagery (meditation, fiction, study, abstract topics) or when the user wants a consistent visual style
-   - **Mixed (recommended default)** — sourced where a natural image is available, AI-generated fill for segments that lack one. Aim for at least one image per chapter
-   - **Skip** — chapters and link companions only, no images. Lightest pipeline, still richer than the old chapters-only output
-7. **Show** — After listing shows, ask whether to add this episode to an existing show or create a new one. Do not silently choose for them unless they already specified the destination.
+Do NOT check shows first and skip onboarding when the user explicitly asked for the guided flow. The explicit ask always wins.
 
-Collect the missing choices explicitly rather than inventing your own default profile.
+---
+
+## User Interview
 
 **Chapter-skip playback is NOT an interview question** — never ask about or enable it unprompted; the `configure-chapter-skip` skill owns the trigger rules and workflow.
 
-**Ask these questions in your first response and STOP.** Wait for the user to answer. Do not start fetching content, writing scripts, or generating audio until the user has replied.
+**Default everything. Only ask what the user's prompt didn't cover.**
 
-If the user's initial prompt already covers some of these (e.g., "make an 8-minute English podcast about..."), skip those questions but still present a plan and wait for confirmation.
+Most preferences have sensible defaults — apply them silently. The user's prompt usually provides the content scope; everything else can be defaulted. Do NOT present a numbered list of questions. Do NOT dump all options at once.
+
+### What to default (never ask unless the user brings it up)
+
+- **Language** — user's system locale
+- **Length** — pick from content (briefings ~8min, deep dives ~8min, recaps ~3min)
+- **Voice** — use the configured default from `save-to-spotify tts status --json`. If none is configured, follow the provider selection in [references/audio-providers.md](references/audio-providers.md). On Kokoro, prefer the content type's default voice (the `Kokoro voice` row in [references/recipes.md](references/recipes.md) — e.g. the softer sleep voice for sleep content) over a generic default
+- **Cover image** — AI-generated (see [references/cover-image.md](references/cover-image.md))
+- **Timeline companion images** — mixed (sourced where available, AI-generated fill)
+
+### What to ask (only if not obvious from the prompt)
+
+1. **Content scope** — if the user didn't specify what the episode is about, ask. Otherwise proceed.
+2. **Show** — pick the most relevant existing show by name. If none fits, create one. Only ask if ambiguous.
 
 ### Plan confirmation
 
-Before starting production, present a short plan:
-- Episode title, language, estimated length, number of segments, voice, show name
-- Skip-forward action: `15 seconds` (default) or `Next chapter` (if explicitly requested)
+Present a one-line plan with choices:
 
-Say: "Here's what I'll produce — let me know if you'd like to change anything, or say 'go' to proceed."
+> "Making a ~8 min deep dive on [topic], adding to [Show Name] with [voice]."
 
-If the user changes the skip-forward action here, treat it as an explicit request — see the `configure-chapter-skip` skill.
+Then present options:
+- **Go** — start production
+- **Change voice** — pick a different TTS voice
+- **Change length** — shorter or longer
+- **Change topic** — adjust the content scope
 
-**Do not start production until the user confirms.**
+Always guide with choices, never wait for free-text input. Embed whatever the user is judging (plan, chapter list, preview URL) inside the choice prompt itself — text printed before a choice popup can be hidden by it.
+
+If the user asks to change the skip-forward action (`15 seconds` default vs `Next chapter`), treat it as an explicit request — see the `configure-chapter-skip` skill. Do not start production until the user confirms the plan.
 
 ---
 
@@ -123,13 +137,13 @@ If the user changes the skip-forward action here, treat it as an explicit reques
 
 Every episode — regardless of content type — must complete these steps.
 
-0. **Preflight install and auth** — Run `save-to-spotify --json auth status` before any sourcing. If the binary is missing, ask the user to confirm installation, install it with the command in the Install section after they approve, then run auth status again. If unauthenticated or token refresh is broken, prompt the user to `save-to-spotify auth login` first.
+0. **Preflight: install, auth, and voice engine** — Run `save-to-spotify --json doctor` before any sourcing. This checks the binary, auth, TTS engines, and ffmpeg in one call. If the binary is missing, ask the user to confirm installation, install it with the command in the Install section after they approve, then run doctor again. If unauthenticated, run `save-to-spotify setup` directly (do not ask the user to run it — just run it). The setup command handles auth + TTS detection in one pass and auto-detects headless environments. **Then confirm a TTS engine is available** via the `tts_engines` field in the doctor output: if one is already set up or the user has a preference, use it; otherwise check for an existing API key (`OPENAI_API_KEY`, `ELEVENLABS_API_KEY`) and suggest that engine first — no install, higher quality. If no key is present, **ask the user** whether to install **Kokoro** (free, local, ~340 MB, [Apache-2.0 licensed](https://raw.githubusercontent.com/hexgrad/kokoro/refs/heads/main/LICENSE)) — put the license link in the question text above the choices, where markdown renders it clickable; never inside option labels, which are plain text. Do not install silently. If they accept, run `save-to-spotify tts setup`. Confirm an engine is *available* before scripting; the interactive voice pick and preview can be deferred until the content is approved — content before audio. Voice previews use the player page in [references/local-preview.md](references/local-preview.md) ("Voice preview page"), never auto-play.
 1. **Interview** — Ask the user about preferences, including companion-image source. Present a plan and **wait for confirmation**
-2. **Script** — Write the script following this skill's universal rules (see [references/content-quality.md](references/content-quality.md))
+2. **Script** — Present a short chapter overview (compact numbered list, bold chapter names, one line each, no blank lines between items) and get it approved first (revising an outline is free; never dump a full transcript on the user), then write the script following this skill's universal rules (see [references/content-quality.md](references/content-quality.md))
 3. **Critique** — Self-review the script, revise without reordering or removing segments
 4. **Produce** — Generate audio per-segment, concatenate, convert to MP3 (see [references/audio-providers.md](references/audio-providers.md)). Build `timeline.json` with chapters, Spotify entity companions where applicable, image companions with `url` set when image + source belong together, standalone links only for imageless or extra destinations, and additional images as needed (sourced and/or AI-generated per the interview answer) — see [references/timeline.md](references/timeline.md)
 5. **Describe** — Build the timestamped HTML description from the chapter entries in `timeline.json` and source URLs (see [references/episode-description.md](references/episode-description.md))
 6. **Cover image** — Generate or select cover image (square, max 1 MB). **MANDATORY — never skip this step** (see [references/cover-image.md](references/cover-image.md))
-7. **Save** — Save MP3 with title, description, and cover image via `save-to-spotify --json upload` (see [references/cli-usage.md](references/cli-usage.md))
+7. **Save** — Start the local browser preview and offer it before saving (serve first, open on request — see [references/local-preview.md](references/local-preview.md)), then save MP3 with title, description, and cover image via `save-to-spotify --json upload` (see [references/cli-usage.md](references/cli-usage.md)). State proactively that the episode is saved private, visible only to the user
 8. **Timeline** — Push `timeline.json` with `timeline set` (uploads image files automatically)
 9. **Verify** — Poll `episodes status` until `READY`

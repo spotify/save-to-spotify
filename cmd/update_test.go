@@ -315,7 +315,7 @@ func TestExtractBinaryExtractsZipAsset(t *testing.T) {
 	} else if _, err := w.Write([]byte("not the binary")); err != nil {
 		t.Fatalf("Write(notes.txt): %v", err)
 	}
-	if w, err := zw.Create("nested/save-to-spotify-darwin-arm64"); err != nil {
+	if w, err := zw.Create("nested/save-to-spotify"); err != nil {
 		t.Fatalf("Create(binary): %v", err)
 	} else if _, err := w.Write([]byte("binary-payload")); err != nil {
 		t.Fatalf("Write(binary): %v", err)
@@ -324,7 +324,7 @@ func TestExtractBinaryExtractsZipAsset(t *testing.T) {
 		t.Fatalf("Close zip: %v", err)
 	}
 
-	got, err := extractBinary(buf.Bytes(), "save-to-spotify-darwin-arm64")
+	got, err := extractBinary(buf.Bytes())
 	if err != nil {
 		t.Fatalf("extractBinary: %v", err)
 	}
@@ -435,4 +435,43 @@ func captureOutput(t *testing.T, fn func() error) string {
 		t.Fatalf("ReadAll(stdout): %v", err)
 	}
 	return string(data)
+}
+
+// extractBinary must find the executable by its inner archive name (which
+// the release workflow sets to save-to-spotify / save-to-spotify.exe) and
+// never fall back to unrelated files like the bundled skills.
+func TestExtractBinaryMatchesInnerExecutable(t *testing.T) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, content := range map[string]string{
+		"skills/save-to-spotify/SKILL.md": "not a binary",
+		"save-to-spotify.exe":             "the-binary",
+	} {
+		f, err := zw.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Write([]byte(content))
+	}
+	zw.Close()
+
+	got, err := extractBinary(buf.Bytes())
+	if err != nil {
+		t.Fatalf("extractBinary: %v", err)
+	}
+	if string(got) != "the-binary" {
+		t.Fatalf("extracted %q, want the executable", got)
+	}
+}
+
+func TestExtractBinaryErrorsWithoutExecutable(t *testing.T) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	f, _ := zw.Create("skills/save-to-spotify/SKILL.md")
+	f.Write([]byte("not a binary"))
+	zw.Close()
+
+	if _, err := extractBinary(buf.Bytes()); err == nil {
+		t.Fatal("expected an error for an archive without the executable")
+	}
 }
