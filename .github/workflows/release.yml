@@ -5,23 +5,24 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  release:
+  build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26"
+          cache: false
 
       - name: Cross-compile all platforms
         run: |
@@ -54,12 +55,59 @@ jobs:
               exit 1
             fi
           done
-          ./dist/save-to-spotify-darwin-arm64 --version
-          arch -x86_64 ./dist/save-to-spotify-darwin-amd64 --version
+
+      - name: Upload binaries for verification and packaging
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  verify:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-26, binary: save-to-spotify-darwin-arm64 }
+          - { os: macos-26-intel, binary: save-to-spotify-darwin-amd64 }
+          - { os: ubuntu-latest, binary: save-to-spotify-linux-amd64 }
+          - { os: ubuntu-24.04-arm, binary: save-to-spotify-linux-arm64 }
+          - { os: windows-latest, binary: save-to-spotify-windows-amd64.exe }
+          - { os: windows-11-arm, binary: save-to-spotify-windows-arm64.exe }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      - name: Run binary on native platform
+        shell: bash
+        run: |
+          chmod +x "dist/${{ matrix.binary }}"
+          "./dist/${{ matrix.binary }}" --version
+
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
 
       - name: Package binaries with agent skill
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
-          version="$(git describe --tags --always 2>/dev/null | sed 's/^v//' || echo "dev")"
+          version="${TAG#v}"
           skills_src="$(pwd)/plugin/skills"
           cd dist
           dist_dir="$(pwd)"
@@ -69,6 +117,7 @@ jobs:
 
             stage="$(mktemp -d)"
             cp "$binary" "$stage/$inner"
+            chmod +x "$stage/$inner"
             cp -R "$skills_src" "$stage/skills"
 
             base="${binary%.exe}"
@@ -95,7 +144,7 @@ jobs:
             --title "$TAG" \
             --generate-notes
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
 
