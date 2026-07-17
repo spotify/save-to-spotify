@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version: "1.22"
+          go-version: "1.26"
 
       - name: Cross-compile all platforms
         run: |
@@ -45,6 +45,16 @@ jobs:
           MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
         run: |
           ./scripts/sign-and-notarize.sh dist/save-to-spotify-darwin-arm64 dist/save-to-spotify-darwin-amd64
+
+      - name: Verify macOS binaries are loadable
+        run: |
+          for binary in dist/save-to-spotify-darwin-arm64 dist/save-to-spotify-darwin-amd64; do
+            if ! otool -l "$binary" | grep -q LC_UUID; then
+              echo "::error::$binary has no LC_UUID load command; dyld on macOS 26+ refuses to launch it (see v0.1.4 incident)"
+              exit 1
+            fi
+          done
+          ./dist/save-to-spotify-darwin-arm64 --version
 
       - name: Package binaries with agent skill
         run: |
