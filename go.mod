@@ -1,3 +1,3 @@
 module github.com/spotify/save-to-spotify
 
-go 1.22.2
+go 1.26

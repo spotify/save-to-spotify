@@ -68,7 +68,7 @@ func StartCallbackServer(port int, expectedState string) (*http.Server, <-chan C
 
 		if result.Error != "" {
 			w.Header().Set("Content-Type", "text/html")
-			fmt.Fprintf(w, successPage("Authentication Failed",
+			fmt.Fprint(w, successPage("Authentication Failed",
 				"Error: "+html.EscapeString(result.Error)+". You can close this tab.",
 				false))
 			resultCh <- result
@@ -78,7 +78,7 @@ func StartCallbackServer(port int, expectedState string) (*http.Server, <-chan C
 		if result.State != expectedState {
 			result.Error = "state mismatch — possible CSRF attack"
 			w.Header().Set("Content-Type", "text/html")
-			fmt.Fprintf(w, successPage("Authentication Failed",
+			fmt.Fprint(w, successPage("Authentication Failed",
 				"State mismatch. You can close this tab.",
 				false))
 			resultCh <- result
@@ -86,7 +86,7 @@ func StartCallbackServer(port int, expectedState string) (*http.Server, <-chan C
 		}
 
 		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprintf(w, successPage("Authentication Successful",
+		fmt.Fprint(w, successPage("Authentication Successful",
 			"You can close this tab and return to the terminal.",
 			true))
 		resultCh <- result
