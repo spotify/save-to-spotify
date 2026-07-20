@@ -3,6 +3,8 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Dry run: build, package, and verify on all platforms without publishing.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,6 +16,8 @@ concurrency:
 jobs:
   build:
     runs-on: macos-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -24,11 +28,23 @@ jobs:
           go-version: "1.26"
           cache: false
 
+      - name: Determine version
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="0.0.0-dryrun.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${version}"
+
       - name: Cross-compile all platforms
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           commit="$(git rev-parse --short HEAD)"
-          version="$(git describe --tags --always 2>/dev/null | sed 's/^v//' || echo "dev")"
-          LDFLAGS="-X github.com/spotify/save-to-spotify/cmd.commit=${commit} -X github.com/spotify/save-to-spotify/cmd.version=${version}"
+          LDFLAGS="-X github.com/spotify/save-to-spotify/cmd.commit=${commit} -X github.com/spotify/save-to-spotify/cmd.version=${VERSION}"
           GOOS=darwin  GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-darwin-arm64 .
           GOOS=darwin  GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-darwin-amd64 .
           GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/save-to-spotify-windows-amd64.exe .
@@ -56,63 +72,20 @@ jobs:
             fi
           done
 
-      - name: Upload binaries for verification and packaging
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: dist
-          path: dist/
-          if-no-files-found: error
-
-  verify:
-    needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { os: macos-26, binary: save-to-spotify-darwin-arm64 }
-          - { os: macos-26-intel, binary: save-to-spotify-darwin-amd64 }
-          - { os: ubuntu-latest, binary: save-to-spotify-linux-amd64 }
-          - { os: ubuntu-24.04-arm, binary: save-to-spotify-linux-arm64 }
-          - { os: windows-latest, binary: save-to-spotify-windows-amd64.exe }
-          - { os: windows-11-arm, binary: save-to-spotify-windows-arm64.exe }
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: dist
-          path: dist
-
-      - name: Run binary on native platform
-        shell: bash
-        run: |
-          chmod +x "dist/${{ matrix.binary }}"
-          "./dist/${{ matrix.binary }}" --version
-
-  release:
-    needs: verify
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: dist
-          path: dist
-
+      # Packaging happens before verification so the verify job exercises the
+      # exact zips users download, not the pre-packaging binaries.
       - name: Package binaries with agent skill
         env:
-          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          version="${TAG#v}"
+          # The manifest lets the verify job check zip contents against the
+          # same source of truth packaging copies from, so the two can't drift.
+          ls plugin/skills > dist/skills-manifest.txt
+
           skills_src="$(pwd)/plugin/skills"
           cd dist
           dist_dir="$(pwd)"
           for binary in save-to-spotify-*; do
-            case "$binary" in *.zip|*.sha256) continue ;; esac
             case "$binary" in *.exe) inner="save-to-spotify.exe" ;; *) inner="save-to-spotify" ;; esac
 
             stage="$(mktemp -d)"
@@ -121,7 +94,7 @@ jobs:
             cp -R "$skills_src" "$stage/skills"
 
             base="${binary%.exe}"
-            zip_name="${base}-v${version}.zip"
+            zip_name="${base}-v${VERSION}.zip"
             (cd "$stage" && zip -qr "${dist_dir}/${zip_name}" "$inner" skills)
             rm -rf "$stage"
 
@@ -134,6 +107,117 @@ jobs:
           for zip in *.zip; do
             shasum -a 256 "$zip" > "${zip}.sha256"
           done
+
+      - name: Upload release artifacts for verification and publishing
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            dist/skills-manifest.txt
+          if-no-files-found: error
+          # Only consumed by downstream jobs in this same run.
+          retention-days: 1
+
+  verify:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-26, target: darwin-arm64 }
+          - { os: macos-26-intel, target: darwin-amd64 }
+          - { os: ubuntu-latest, target: linux-amd64 }
+          - { os: ubuntu-24.04-arm, target: linux-arm64 }
+          - { os: windows-latest, target: windows-amd64 }
+          - { os: windows-11-arm, target: windows-arm64 }
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      ZIP: save-to-spotify-${{ matrix.target }}-v${{ needs.build.outputs.version }}.zip
+    steps:
+      # First step: checkout cleans the workspace, so it must precede the
+      # artifact download.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/verify-binary.sh
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      # sha256sum on Linux and Windows Git Bash; shasum on macOS, which has
+      # no sha256sum. No single tool exists on all six runners.
+      - name: Verify checksum sidecar
+        shell: bash
+        working-directory: dist
+        run: |
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum -c "${ZIP}.sha256"
+          else
+            shasum -a 256 -c "${ZIP}.sha256"
+          fi
+
+      # Extract the way a user would on each platform. No chmod afterwards —
+      # a zip that loses the executable bit must fail here, not on user machines.
+      - name: Extract zip (unzip)
+        if: runner.os != 'Windows'
+        run: unzip -q "dist/${ZIP}" -d extracted
+
+      - name: Extract zip (Expand-Archive)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Expand-Archive -Path "dist/$env:ZIP" -DestinationPath extracted
+
+      # CI artifacts carry no quarantine attribute, so running the binary as-is
+      # would bypass Gatekeeper and prove nothing about notarization. Setting
+      # com.apple.quarantine before the run recreates the real download path:
+      # exec of a quarantined binary makes syspolicyd assess the signature and
+      # notarization ticket, and kills the process if either is bad.
+      - name: Simulate a quarantined download (Gatekeeper)
+        if: runner.os == 'macOS'
+        run: |
+          codesign --verify --strict --verbose=2 extracted/save-to-spotify
+          xattr -w com.apple.quarantine "0081;00000000;verify;" extracted/save-to-spotify
+
+      - name: Smoke-test binary (version, doctor)
+        shell: bash
+        run: |
+          bin="extracted/save-to-spotify"
+          if [ "${RUNNER_OS}" = "Windows" ]; then
+            bin="extracted/save-to-spotify.exe"
+          fi
+          bash scripts/verify-binary.sh "$bin" "$VERSION"
+
+      - name: Verify skill bundle is present
+        shell: bash
+        run: |
+          while IFS= read -r skill; do
+            if [ ! -f "extracted/skills/${skill}/SKILL.md" ]; then
+              echo "::error::skills/${skill}/SKILL.md missing from ${ZIP}"
+              exit 1
+            fi
+          done < dist/skills-manifest.txt
+
+  release:
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
 
       - name: Create GitHub release
         env:
@@ -155,3 +239,13 @@ jobs:
         env:
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
         run: ./scripts/clawhub-publish
+
+  # gh release create runs with GITHUB_TOKEN, whose events never trigger other
+  # workflows — a standalone `on: release` workflow would silently not fire.
+  # Calling the verifier here is the only reliable way to run it post-publish.
+  # No `if` needed: when `release` is skipped (dry runs), this is skipped too.
+  verify-published:
+    needs: release
+    uses: ./.github/workflows/verify-release.yml
+    with:
+      tag: ${{ github.ref_name }}
