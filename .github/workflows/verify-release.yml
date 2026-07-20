@@ -6,6 +6,8 @@ name: Verify published release
 # any existing release.
 
 on:
+  push:
+    branches: [maboullaite/release-binary-sanity-checks]
   workflow_call:
     inputs:
       tag:
@@ -44,7 +46,7 @@ jobs:
       - name: Install via install.sh and smoke-test the installed binary
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ inputs.tag || 'v0.2.0' }}
         run: |
           version="${TAG#v}"
           bash install.sh --version "$version" --dir "$RUNNER_TEMP/bin"
