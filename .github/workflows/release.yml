@@ -30,13 +30,12 @@ jobs:
 
       - name: Determine version
         id: version
-        env:
-          REF_NAME: ${{ github.ref_name }}
         run: |
-          case "$GITHUB_REF" in
-            refs/tags/v*) version="${REF_NAME#v}" ;;
-            *)            version="0.0.0-dryrun.${GITHUB_RUN_NUMBER}" ;;
-          esac
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="0.0.0-dryrun.${GITHUB_RUN_NUMBER}"
+          fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "Version: ${version}"
 
@@ -79,11 +78,14 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
+          # The manifest lets the verify job check zip contents against the
+          # same source of truth packaging copies from, so the two can't drift.
+          ls plugin/skills > dist/skills-manifest.txt
+
           skills_src="$(pwd)/plugin/skills"
           cd dist
           dist_dir="$(pwd)"
           for binary in save-to-spotify-*; do
-            case "$binary" in *.zip|*.sha256) continue ;; esac
             case "$binary" in *.exe) inner="save-to-spotify.exe" ;; *) inner="save-to-spotify" ;; esac
 
             stage="$(mktemp -d)"
@@ -113,7 +115,10 @@ jobs:
           path: |
             dist/*.zip
             dist/*.sha256
+            dist/skills-manifest.txt
           if-no-files-found: error
+          # Only consumed by downstream jobs in this same run.
+          retention-days: 1
 
   verify:
     needs: build
@@ -132,6 +137,14 @@ jobs:
       VERSION: ${{ needs.build.outputs.version }}
       ZIP: save-to-spotify-${{ matrix.target }}-v${{ needs.build.outputs.version }}.zip
     steps:
+      # First step: checkout cleans the workspace, so it must precede the
+      # artifact download.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/verify-binary.sh
+          sparse-checkout-cone-mode: false
+
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dist
@@ -140,12 +153,7 @@ jobs:
       - name: Verify checksum sidecar
         shell: bash
         working-directory: dist
-        run: |
-          if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum -c "${ZIP}.sha256"
-          else
-            shasum -a 256 -c "${ZIP}.sha256"
-          fi
+        run: shasum -a 256 -c "${ZIP}.sha256"
 
       # Extract the way a user would on each platform. No chmod afterwards —
       # a zip that loses the executable bit must fail here, not on user machines.
@@ -169,42 +177,27 @@ jobs:
           codesign --verify --strict --verbose=2 extracted/save-to-spotify
           xattr -w com.apple.quarantine "0081;00000000;verify;" extracted/save-to-spotify
 
-      - name: Run binary and verify version
+      - name: Smoke-test binary (version, doctor)
         shell: bash
         run: |
           bin="extracted/save-to-spotify"
           if [ "${RUNNER_OS}" = "Windows" ]; then
             bin="extracted/save-to-spotify.exe"
           fi
-
-          out="$("$bin" --version)"
-          echo "$out"
-          case "$out" in
-            *" ${VERSION} ("*) ;;
-            *) echo "::error::--version output does not report ${VERSION}; ldflags version stamping is broken"; exit 1 ;;
-          esac
-
-      - name: Run doctor smoke check
-        shell: bash
-        run: |
-          bin="extracted/save-to-spotify"
-          if [ "${RUNNER_OS}" = "Windows" ]; then
-            bin="extracted/save-to-spotify.exe"
-          fi
-          "$bin" doctor
+          bash scripts/verify-binary.sh "$bin" "$VERSION"
 
       - name: Verify skill bundle is present
         shell: bash
         run: |
-          for skill in save-to-spotify configure-chapter-skip; do
+          while IFS= read -r skill; do
             if [ ! -f "extracted/skills/${skill}/SKILL.md" ]; then
               echo "::error::skills/${skill}/SKILL.md missing from ${ZIP}"
               exit 1
             fi
-          done
+          done < dist/skills-manifest.txt
 
   release:
-    needs: [build, verify]
+    needs: verify
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -243,9 +236,9 @@ jobs:
   # gh release create runs with GITHUB_TOKEN, whose events never trigger other
   # workflows — a standalone `on: release` workflow would silently not fire.
   # Calling the verifier here is the only reliable way to run it post-publish.
+  # No `if` needed: when `release` is skipped (dry runs), this is skipped too.
   verify-published:
     needs: release
-    if: startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/verify-release.yml
     with:
       tag: ${{ github.ref_name }}
