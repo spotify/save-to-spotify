@@ -112,7 +112,10 @@ determine_install_dir() {
   fi
 
   if [[ "$os" == "windows" ]]; then
-    INSTALL_DIR="${LOCALAPPDATA:-$HOME/AppData/Local}/save-to-spotify"
+    # This script only runs under a bash-like shell on Windows (Git Bash /
+    # MSYS). ~/.local/bin can be added to PATH from .bashrc below, unlike
+    # LOCALAPPDATA which is never on PATH and this script cannot fix.
+    INSTALL_DIR="${HOME}/.local/bin"
     mkdir -p "$INSTALL_DIR"
     return
   fi
@@ -214,25 +217,78 @@ install_skills() {
 }
 
 verify_in_path() {
+  local bin_path="${INSTALL_DIR}/${BIN_NAME}${BIN_EXT}"
+
   case ":${PATH}:" in
   *":${INSTALL_DIR}:"*)
     echo ""
     echo "\$ ${BIN_NAME} version"
-    "${INSTALL_DIR}/${BIN_NAME}${BIN_EXT}" version
+    "${bin_path}" version
+    echo ""
+    info "Next: ${BIN_NAME} setup"
     return
     ;;
   esac
 
   echo ""
-  warn "${INSTALL_DIR} is not in your PATH. Add it with:"
   if [[ "$os" == "windows" ]]; then
-    warn "  Add ${INSTALL_DIR} to your system PATH via System Properties > Environment Variables"
+    warn "${INSTALL_DIR} is not in your PATH."
+    warn "  Git Bash: add this line to ~/.bashrc:"
+    warn "    export PATH=\"${INSTALL_DIR}:\$PATH\""
+    warn "  PowerShell/cmd (user-wide, new shells):"
+    # Convert the MSYS path (/c/Users/...) to a real Windows path; naive
+    # slash replacement would produce \c\Users\... which PowerShell rejects.
+    local win_dir
+    win_dir="$(cygpath -w "$INSTALL_DIR" 2>/dev/null || echo "$INSTALL_DIR")"
+    warn "    [Environment]::SetEnvironmentVariable('PATH', \$env:PATH + ';${win_dir}', 'User')"
   else
-    warn "  export PATH=\"${INSTALL_DIR}:\$PATH\""
-    warn ""
-    warn "To make it permanent, add that line to your shell config:"
-    warn "  ~/.bashrc, ~/.zshrc, or ~/.profile"
+    local shell_name rc_file export_line
+    shell_name="$(basename "${SHELL:-/bin/bash}")"
+    export_line="export PATH=\"${INSTALL_DIR}:\$PATH\""
+
+    case "$shell_name" in
+      zsh)  rc_file="$HOME/.zshrc" ;;
+      bash)
+        if [[ -f "$HOME/.bashrc" ]]; then
+          rc_file="$HOME/.bashrc"
+        else
+          rc_file="$HOME/.profile"
+        fi
+        ;;
+      *)    rc_file="$HOME/.profile" ;;
+    esac
+
+    warn "${INSTALL_DIR} is not in your PATH."
+
+    # With `curl ... | bash`, stdin is the pipe even in an interactive
+    # terminal — gate on stdout being a TTY and /dev/tty being readable
+    # (the read below already uses /dev/tty, not stdin).
+    if [ -t 1 ] && [ -r /dev/tty ]; then
+      printf "  Add to %s? [Y/n] " "$rc_file"
+      read -r answer < /dev/tty
+      case "$answer" in
+        [nN]*)
+          warn "Skipped. Add manually:"
+          warn "  $export_line"
+          ;;
+        *)
+          echo "" >> "$rc_file"
+          echo "# Added by save-to-spotify installer" >> "$rc_file"
+          echo "$export_line" >> "$rc_file"
+          info "✓ Added to $rc_file. Restart your terminal or run: source $rc_file"
+          export PATH="${INSTALL_DIR}:$PATH"
+          ;;
+      esac
+    else
+      warn "  $export_line"
+      warn ""
+      warn "  Add that line to ~/${rc_file##*/} to make it permanent."
+    fi
   fi
+
+  echo ""
+  info "Binary installed at: ${bin_path}"
+  info "Next: ${BIN_NAME} setup"
 }
 
 # --- Main ---

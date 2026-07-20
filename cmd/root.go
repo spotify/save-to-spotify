@@ -22,6 +22,8 @@ func Execute() error {
 		fmt.Fprintln(os.Stderr, `<claude-code-hint v="1" type="plugin" value="save-to-spotify@claude-plugins-official" />`)
 	}
 
+	sweepOldUpdateBinary()
+
 	args := os.Args[1:]
 
 	filtered := args[:0]
@@ -80,6 +82,14 @@ func Execute() error {
 		err = handleUpdate(args[1:])
 	case "feedback":
 		err = handleFeedback(args[1:])
+	case "setup":
+		err = handleSetup(args[1:])
+	case "doctor":
+		err = handleDoctor(args[1:])
+	case "tts":
+		err = handleTTS(args[1:])
+	case "info":
+		err = handleInfo(args[1:])
 	case "version", "--version":
 		if config.JSONMode() {
 			return printJSON(map[string]any{"version": version, "commit": commit})
@@ -137,6 +147,8 @@ Usage:
   %[1]s <command> [flags]
 
 Commands:
+  setup                   Set up auth and voice engine (first-run onboarding)
+  doctor                  Check system readiness — binary, auth, TTS, ffmpeg
   upload <file>           Upload a media file and create an episode
   shows                   List shows created via CLI
   shows create            Create a new show
@@ -151,11 +163,20 @@ Commands:
   auth login              Authenticate with Spotify
   auth status             Show current authentication status
   auth logout             Remove stored credentials
+  tts                     Manage TTS voice engines
+  tts status              Check which engines are available
+  tts setup               Install or configure a TTS engine
+  tts voices              List available voices for an engine
+  tts test                Test a voice with a sample
+  tts default             Get or set the default TTS engine
+  tts add                 Register a custom TTS engine
+  tts remove              Unregister a custom engine
   timeline                Manage timeline (chapters + images + links + Spotify references)
   timeline get <id>       Get timeline for an episode
   timeline set            Set (replace) timeline from a JSON file
   timeline delete <id>    Delete all timeline items for an episode
   update                  Check for and install updates
+  info                    Usage limits, content policies, support link
   feedback                Report an issue or share feedback
   token                   Print the current access token (for piping)
   version                 Print version
@@ -178,6 +199,7 @@ Environment variables:
   SAVE_TO_SPOTIFY_CLIENT_ID     OAuth client ID override
   SAVE_TO_SPOTIFY_NO_UPDATE_CHECK    Disable the passive update check that runs after successful commands
   SAVE_TO_SPOTIFY_RELEASES_URL       Override the releases download URL
+  SAVE_TO_SPOTIFY_PREVIEW_DIR        Override where tts test writes voice previews
   SAVE_TO_SPOTIFY_RELEASES_API_URL   Override the fallback version check URL (backend)
   SAVE_TO_SPOTIFY_GITHUB_RELEASES_URL   Override the primary version check URL (GitHub Releases API)
   SAVE_TO_SPOTIFY_HEADERS            Additional backend headers (JSON object, X-STS-* only)

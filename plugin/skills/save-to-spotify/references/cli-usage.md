@@ -18,13 +18,13 @@ Pin a version or change the install directory:
 
 ```shell
 # Specific version
-curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --version 0.1.5
+curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --version 0.2.0
 
 # Custom directory
 curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --dir ~/.local/bin
 
 # Via environment variables
-SAVE_TO_SPOTIFY_VERSION=0.1.5 SAVE_TO_SPOTIFY_INSTALL_DIR=~/.local/bin \
+SAVE_TO_SPOTIFY_VERSION=0.2.0 SAVE_TO_SPOTIFY_INSTALL_DIR=~/.local/bin \
   curl -fsSL https://saveto.spotify.com/install.sh | bash
 ```
 
@@ -66,6 +66,55 @@ Verify installation:
 save-to-spotify version
 ```
 
+## First-run setup
+
+After installation, run the guided setup to authenticate and detect TTS engines:
+
+```shell
+save-to-spotify setup
+```
+
+This handles auth + TTS detection in one pass. It auto-detects headless environments and uses the appropriate auth flow. After setup, verify everything is ready:
+
+```shell
+save-to-spotify doctor
+```
+
+Reports binary, auth, TTS engines, and ffmpeg status. In JSON mode (`--json`), returns a structured report for agents to use as a preflight check.
+
+## TTS engine management
+
+The CLI detects and manages TTS engines used for audio generation:
+
+```shell
+# Check which engines are available
+save-to-spotify tts status
+
+# Install Kokoro (free, local, no API key)
+save-to-spotify tts setup
+
+# Install or configure a specific engine
+save-to-spotify tts setup --engine openai
+
+# List voices for an engine
+save-to-spotify tts voices --engine kokoro
+
+# Test a voice with a sample phrase
+save-to-spotify tts test --engine kokoro --voice af_heart
+
+# Get or set the default engine
+save-to-spotify tts default
+save-to-spotify tts default openai
+
+# Register a custom engine
+save-to-spotify tts add --name gemini --check-cmd 'python3 -c "import google.genai"' --key-env GEMINI_API_KEY   # use python instead of python3 on Windows
+
+# Remove a custom engine
+save-to-spotify tts remove gemini
+```
+
+Three engines are built-in: **Kokoro** (free, local), **OpenAI TTS**, and **ElevenLabs**. Register any additional engine with `tts add`.
+
 ## Authentication
 
 The user must authenticate once before any save. The CLI uses OAuth 2.0 with PKCE -- no client secret needed.
@@ -76,7 +125,7 @@ The user must authenticate once before any save. The CLI uses OAuth 2.0 with PKC
 save-to-spotify auth login
 ```
 
-This opens the browser, the user approves, and a token is saved to `~/.config/save-to-spotify/token.json`.
+This opens the browser, the user approves, and a token is saved to `~/.config/save-to-spotify/token.json` (this path holds on every platform, including Windows — `%USERPROFILE%\.config\...` — the CLI does not use APPDATA).
 
 ### Headless (remote server, CI, or agent environment)
 
@@ -284,6 +333,8 @@ export SAVE_TO_SPOTIFY_TIMEOUT=2m
 ```
 
 ## Common agent workflows
+
+These snippets use bash syntax (command substitution, `while` loops, parameter expansion). On Windows, run them in Git Bash or translate to PowerShell/Python — don't paste them into cmd or PowerShell as-is.
 
 ### Create a rich-timeline episode end-to-end
 

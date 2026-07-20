@@ -378,10 +378,7 @@ func handleEpisodesCreate(args []string) error {
 		return printJSON(result)
 	}
 
-	fmt.Println("Episode created successfully.")
-	fmt.Printf("  URI:    %s\n", result.EpisodeURI)
-	fmt.Printf("  Title:  %s\n", flags.title)
-	fmt.Printf("  Status: %s\n", result.Status)
+	printEpisodeCreated(result.EpisodeURI, flags.title, result.Status)
 
 	return nil
 }

@@ -22,7 +22,7 @@ Every episode walks the same steps. Recipes define what to write (sourcing, scri
 
 ### Voice selection guide
 
-- **Kokoro** (local, free): `af_alloy` (American female, recommended), `am_adam` (American male), `bf_emma` (British female), `bm_george` (British male)
+- **Kokoro** (local, free): suggest the recipe's default voice first (the `Kokoro voice` row in [recipes.md](recipes.md)); full voice list in the Kokoro section below
 - **ElevenLabs** (high quality, paid): Amelia, George, Bella
 - **Edge TTS** (free, 300+ voices): `en-US-AriaNeural` (F), `en-US-GuyNeural` (M)
 - **OpenAI TTS** (high quality, paid): `nova`, `alloy`, `echo`, `onyx`
@@ -60,38 +60,68 @@ Concatenate manifest outputs in order, then compute chapter timestamps from the 
 
 ## Provider selection
 
-When a content creation recipe is triggered and no TTS provider has been established, ask the user:
+Whenever offering Kokoro to the user, include its license — [Apache-2.0](https://raw.githubusercontent.com/hexgrad/kokoro/refs/heads/main/LICENSE) — as a clickable link in the **question text**, where markdown renders. Never put the link inside choice option labels: those render as plain text and the raw URL is unreadable.
 
-> What TTS (text-to-speech) tool would you like me to use?
+When a content creation recipe is triggered and no TTS provider has been established, resolve one in this order:
+
+**1. Check for a configured default.** Run `save-to-spotify tts status --json`. If a default engine is set and ready, use it — no questions needed.
+
+**2. Reuse a key the user already has.** If no default is set, `tts status` reports which cloud engines have API keys present. Suggest those first — they're higher quality and need no install:
+
+> You already have an **OpenAI** key set — I can use that with no setup. Prefer that, or a free local voice?
+
+**3. No key? Fall back to Kokoro (the default).**
+
+> No TTS key found, so I'll default to **Kokoro** — a free, local voice engine (no key, no limits, ~340 MB, [Apache-2.0 licensed](https://raw.githubusercontent.com/hexgrad/kokoro/refs/heads/main/LICENSE)). Want that, or pick your own?
+
+If they accept and Kokoro isn't installed, run `save-to-spotify tts setup` to install it.
+
+**4. Or pick explicitly.** If the user would rather choose:
+
+> Which TTS engine would you like to use? Kokoro is [Apache-2.0 licensed](https://raw.githubusercontent.com/hexgrad/kokoro/refs/heads/main/LICENSE).
 >
-> - **macOS `say`** -- built-in, no setup, limited voices
-> - **Edge TTS** (`edge-tts`) -- free, 300+ voices, 70+ languages
-> - **OpenAI TTS** -- high quality, paid
-> - **ElevenLabs** -- most natural, paid
-> - **Google Cloud TTS** -- high quality, paid
-> - **Piper** -- offline, fast, open-source
-> - **gTTS** -- free, Google Translate quality
-> - **Amazon Polly** -- cloud, paid
-> - Something else?
->
-> Which voice do you prefer? (I can list available voices.)
+> - **Kokoro** (recommended) -- free, local, no API key, no limits, Apache-2.0
+> - **OpenAI TTS** -- high quality, needs OPENAI_API_KEY
+> - **ElevenLabs** -- most natural, needs ELEVENLABS_API_KEY
+> - Something else? (register any engine with `save-to-spotify tts add`)
+
+### Other providers
+
+These are fully supported but not front-and-center for new users. See the provider reference below for usage:
+
+- **Edge TTS** (`edge-tts`) -- free, 300+ voices, 70+ languages
+- **Piper** -- offline, fast, open-source
+- **Google Cloud TTS** -- high quality, paid (service account)
+- **gTTS** -- free, Google Translate quality
+- **Amazon Polly** -- cloud, paid
+- **macOS `say`** -- built-in, zero setup, low quality; use only for a quick test
+
+Register any engine with `save-to-spotify tts add --name <name> --check-cmd <cmd>`.
 
 ### Verification
 
 Before generating, verify the chosen provider is available:
 
 ```shell
-which say          # macOS (always available)
-which edge-tts     # pip install edge-tts
-which piper        # separate install
-python3 -c "import openai"      # OpenAI
-python3 -c "import elevenlabs"  # ElevenLabs
-
-# ffmpeg is required for assembly
-which ffmpeg && which ffprobe
+save-to-spotify tts status --json
 ```
 
-If not installed, offer to install or suggest an alternative.
+This checks all built-in and custom engines, API keys, and ffmpeg in one call. If a specific engine needs manual verification:
+
+`save-to-spotify --json tts status` is the canonical readiness check. For cloud engines, `ready` means the API key is present — that is all the CLI needs; `tts test` synthesizes previews natively with no Python involved.
+
+**Production synthesis is different**: the full-episode snippets below run through Python, so before generating episode audio (not previews), also verify the packages the chosen snippet imports:
+
+```shell
+python3 -c "import openai"      # OpenAI production snippet
+python3 -c "import elevenlabs"  # ElevenLabs production snippet
+python3 -c "import kokoro_onnx" # Kokoro (use the venv python — see the Kokoro section)
+ffmpeg -version && ffprobe -version   # Required for assembly (portable check)
+```
+
+Install what's missing with pip before synthesis. On Windows the interpreter is `python` (or the `py` launcher), not `python3`. If ffmpeg is missing: `brew install ffmpeg` (macOS), `apt install ffmpeg` (Linux), `winget install ffmpeg` (Windows).
+
+If nothing is ready, run `save-to-spotify tts setup` to install the free default (Kokoro), or set a cloud TTS API key and run `save-to-spotify tts status` again.
 
 ## TTS provider reference
 
@@ -123,20 +153,32 @@ Key voices: `en-US-AriaNeural` (F), `en-US-GuyNeural` (M), `en-GB-SoniaNeural` (
 from openai import OpenAI
 client = OpenAI()
 resp = client.audio.speech.create(model="tts-1", voice="nova", input="Text")
-resp.stream_to_file("output.mp3")
+resp.write_to_file("output.mp3")
 ```
 
-Voices: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`. Use `tts-1-hd` for higher quality.
+Voices: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`. Use `tts-1-hd` for higher quality. (Older `stream_to_file` is deprecated in current SDK versions.)
 
 ### ElevenLabs
 
 ```python
-from elevenlabs import generate, save
-audio = generate(text="Text", voice="Rachel", model="eleven_multilingual_v2")
-save(audio, "output.mp3")
+from elevenlabs.client import ElevenLabs
+
+client = ElevenLabs()  # reads ELEVENLABS_API_KEY
+
+# Resolve the voice name to a voice_id first — convert() takes ids, not names.
+voice_id = next(v.voice_id for v in client.voices.get_all().voices if v.name == "Rachel")
+
+audio = client.text_to_speech.convert(
+    voice_id=voice_id,
+    model_id="eleven_multilingual_v2",
+    text="Text",
+)
+with open("output.mp3", "wb") as f:
+    for chunk in audio:
+        f.write(chunk)
 ```
 
-Most natural. Supports multiple languages.
+Most natural. Supports multiple languages. (Older `from elevenlabs import generate, save` no longer exists in current SDK versions.)
 
 ### Piper (offline)
 
@@ -147,13 +189,27 @@ ffmpeg -i output.wav -codec:a libmp3lame -qscale:a 2 output.mp3  # convert
 
 ### Kokoro (local, free, no API limits)
 
+**Run synthesis with the Kokoro venv's Python, never the system one** — the packages live in the venv. Don't construct the path yourself: read the `kokoro_python` field from `save-to-spotify --json tts status`, which resolves the platform layout (`kokoro-env/bin/python3` on macOS/Linux, `kokoro-env\Scripts\python.exe` on Windows).
+
 ```python
 from kokoro_onnx import Kokoro
 import soundfile as sf
 import numpy as np
 import json
+import os, glob
 
-kokoro = Kokoro('kokoro-v1.0.onnx', 'voices-v1.0.bin')
+# Find kokoro model files — search the save-to-spotify config dir, never hardcode versions
+config_dir = os.path.expanduser("~/.config/save-to-spotify")
+search_dirs = [os.path.join(config_dir, "kokoro-env"), config_dir]
+
+def find_model(pattern):
+    for d in search_dirs:
+        hits = glob.glob(os.path.join(d, pattern))
+        if hits:
+            return sorted(hits)[-1]  # latest version
+    raise FileNotFoundError(f"No {pattern} found — run: save-to-spotify tts setup")
+
+kokoro = Kokoro(find_model('kokoro-v*.onnx'), find_model('voices-v*.bin'))
 
 segments = [
     ("Introduction", intro_text),
@@ -166,7 +222,7 @@ all_samples = []
 cursor_ms = 0
 
 for title, text in segments:
-    samples, sr = kokoro.create(text, voice='af_alloy', speed=1.0)
+    samples, sr = kokoro.create(text, voice='af_heart', speed=1.0)
     timeline_items.append({"chapter": {"title": title, "start_time_ms": cursor_ms}})
     all_samples.append(samples)
     # 300ms silence between segments
@@ -183,7 +239,7 @@ with open('timeline.json', 'w') as f:
 
 Convert to MP3: `ffmpeg -i episode.wav -codec:a libmp3lame -b:a 192k episode.mp3`
 
-Voices: `af_alloy` (American female, recommended), `am_adam` (American male), `bf_emma` (British female), `bm_george` (British male). Fully offline, no API limits. Generates audio + chapter timestamps in one pass.
+Voices: `af_heart` (American female, recommended default), `af_nicole` (American female, soft — sleep content), `af_alloy` (American female), `am_adam` (American male), `bf_emma` (British female), `bm_george` (British male). Fully offline, no API limits. Generates audio + chapter timestamps in one pass.
 
 ### gTTS (free, basic)
 
@@ -218,6 +274,8 @@ Before sending text to any TTS engine, clean it:
 ## Audio assembly with ffmpeg
 
 All content recipes generate multiple segments that must be joined into a single file; the segment boundaries become chapters in the timeline.
+
+The snippets below use `/tmp/` and bash syntax (heredocs) for brevity — on Windows, use the session temp directory (`%TEMP%` or Python's `tempfile.gettempdir()`) instead of `/tmp/`, and write file lists with Python or an editor rather than `cat << EOF`.
 
 ### Generate silence
 

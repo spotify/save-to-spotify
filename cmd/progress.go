@@ -18,6 +18,7 @@ type progressReader struct {
 	read       int64
 	lastUpdate time.Time
 	filename   string
+	verb       string
 }
 
 func newProgressReader(r io.Reader, total int64, filename string) *progressReader {
@@ -25,6 +26,7 @@ func newProgressReader(r io.Reader, total int64, filename string) *progressReade
 		reader:   r,
 		total:    total,
 		filename: filename,
+		verb:     "Uploading",
 	}
 }
 
@@ -61,8 +63,8 @@ func (pr *progressReader) printProgress() {
 	readMB := float64(pr.read) / (1024 * 1024)
 	totalMB := float64(pr.total) / (1024 * 1024)
 
-	fmt.Fprintf(os.Stderr, "\rUploading %s... [%s] %3.0f%% %.1f/%.1f MB",
-		pr.filename, string(bar), pct, readMB, totalMB)
+	fmt.Fprintf(os.Stderr, "\r%s %s... [%s] %3.0f%% %.1f/%.1f MB",
+		pr.verb, pr.filename, string(bar), pct, readMB, totalMB)
 }
 
 func (pr *progressReader) finish() {
