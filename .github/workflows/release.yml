@@ -150,10 +150,17 @@ jobs:
           name: dist
           path: dist
 
+      # sha256sum on Linux and Windows Git Bash; shasum on macOS, which has
+      # no sha256sum. No single tool exists on all six runners.
       - name: Verify checksum sidecar
         shell: bash
         working-directory: dist
-        run: shasum -a 256 -c "${ZIP}.sha256"
+        run: |
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum -c "${ZIP}.sha256"
+          else
+            shasum -a 256 -c "${ZIP}.sha256"
+          fi
 
       # Extract the way a user would on each platform. No chmod afterwards —
       # a zip that loses the executable bit must fail here, not on user machines.
