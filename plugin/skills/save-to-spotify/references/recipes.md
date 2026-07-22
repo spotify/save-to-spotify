@@ -45,10 +45,10 @@ Each recipe carries a **default Kokoro voice** in its table below — use it as 
 | Show name | Deep Dives |
 | Kokoro voice | af_heart |
 
-**Data sources:** Web search, user-provided URLs, PDFs, and documents.
+**Data sources:** Web search.
 
 **Example prompt:**
-> Deep dive into this article: https://example.com/interesting-post
+> Deep dive into how solar panels work
 
 ---
 
