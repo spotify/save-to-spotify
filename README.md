@@ -7,7 +7,7 @@ A command-line tool for saving audio content to Spotify. Built for agents and au
 Point your agent at content you have, and get a finished episode on Spotify:
 
 - **Morning briefing** — your calendar, tasks, and overnight repo activity as a 3-minute daily brief
-- **Deep dive** — turn a topic, article, or PDF into a personalized audio explainer
+- **Deep dive** — turn a topic into a personalized audio explainer
 - **Meeting recap** — drop in a transcript, get a 2-minute summary with action items
 - **Travel guide** — a private audio itinerary for your next trip
 - **News roundup** — a daily roundup from the newsletters, feeds, and sites you follow
