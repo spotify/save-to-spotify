@@ -1,0 +1,51 @@
+name: Verify published release
+
+# Verifies the last mile the Release workflow's verify job can't: the published
+# GitHub release assets and install.sh, exactly as a user consumes them.
+# Called from release.yml after publishing; dispatchable for ad-hoc checks of
+# any existing release.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to verify (e.g. v0.2.0)"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to verify (e.g. v0.2.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        # install.sh requires a bash-like shell; Windows users run it under
+        # Git Bash, which CI can't reproduce faithfully — Windows binaries are
+        # covered by the Release workflow's native verify job instead.
+        os: [macos-26, macos-26-intel, ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            install.sh
+            scripts/verify-binary.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Install via install.sh and smoke-test the installed binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          version="${TAG#v}"
+          bash install.sh --version "$version" --dir "$RUNNER_TEMP/bin"
+          bash scripts/verify-binary.sh "$RUNNER_TEMP/bin/save-to-spotify" "$version"
