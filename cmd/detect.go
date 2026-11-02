@@ -187,7 +187,7 @@ func detectKokoro() TTSEngine {
 	// first: it short-circuits the Python process spawn on fresh installs.
 	if kokoroModelsPresent() {
 		pythonBin := kokoroPython()
-		if exec.Command(pythonBin, "-c", "import kokoro_onnx").Run() == nil {
+		if pythonCommand(pythonBin, "-c", "import kokoro_onnx").Run() == nil {
 			e.Status = TTSReady
 			return e
 		}
@@ -243,13 +243,12 @@ func venvPython(venvDir string) string {
 	return filepath.Join(venvDir, "bin", "python3")
 }
 
-// venvPip returns the path to the pip executable inside a venv, accounting
-// for the platform layout like venvPython.
-func venvPip(venvDir string) string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join(venvDir, "Scripts", "pip.exe")
-	}
-	return filepath.Join(venvDir, "bin", "pip")
+// pythonCommand builds an exec.Cmd for a Python interpreter in isolated
+// mode (-I). Without it, Python puts the working directory on sys.path for
+// -c and -m, so a venv.py or kokoro_onnx.py in an untrusted project would
+// shadow the real module and run as the user.
+func pythonCommand(bin string, args ...string) *exec.Cmd {
+	return exec.Command(bin, append([]string{"-I"}, args...)...)
 }
 
 // kokoroPython returns the python binary inside the kokoro venv if it exists,
@@ -324,7 +323,7 @@ func findPython3Uncached() (string, error) {
 }
 
 func pythonVersionOK(bin string) bool {
-	out, err := exec.Command(bin, "-c",
+	out, err := pythonCommand(bin, "-c",
 		"import sys; print(sys.version_info.major, sys.version_info.minor)").Output()
 	if err != nil {
 		return false
