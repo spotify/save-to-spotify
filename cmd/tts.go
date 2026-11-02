@@ -163,7 +163,7 @@ func setupKokoro() error {
 	// package alone cannot synthesize.
 	packageInstalled := false
 	if _, err := os.Stat(venvPy); err == nil {
-		packageInstalled = exec.Command(venvPy, "-c", "import kokoro_onnx").Run() == nil
+		packageInstalled = pythonCommand(venvPy, "-c", "import kokoro_onnx").Run() == nil
 	}
 
 	if !packageInstalled {
@@ -175,7 +175,7 @@ func setupKokoro() error {
 
 		// Create venv.
 		info("Creating Python virtual environment (using %s)...\n", pythonBin)
-		cmd := exec.Command(pythonBin, "-m", "venv", venvDir, "--clear")
+		cmd := pythonCommand(pythonBin, "-m", "venv", venvDir, "--clear")
 		cmd.Stdout = os.Stderr
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
@@ -184,8 +184,7 @@ func setupKokoro() error {
 
 		// Install kokoro-onnx and soundfile.
 		info("Installing kokoro-onnx and soundfile...\n")
-		pip := venvPip(venvDir)
-		cmd = exec.Command(pip, "install", "kokoro-onnx", "soundfile")
+		cmd = pythonCommand(venvPy, "-m", "pip", "install", "kokoro-onnx", "soundfile")
 		cmd.Stdout = os.Stderr
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
@@ -194,7 +193,7 @@ func setupKokoro() error {
 
 		// Install spaCy model.
 		info("Installing spaCy language model...\n")
-		cmd = exec.Command(pip, "install",
+		cmd = pythonCommand(venvPy, "-m", "pip", "install",
 			"https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl")
 		cmd.Stdout = os.Stderr
 		cmd.Stderr = os.Stderr
@@ -589,7 +588,7 @@ func playPreview(path string) error {
 }
 
 func runPythonTTSTest(pythonBin, script, engineName string) error {
-	cmd := exec.Command(pythonBin, "-c", script)
+	cmd := pythonCommand(pythonBin, "-c", script)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%s synthesis failed: %w", engineName, err)
