@@ -40,7 +40,7 @@ curl -fsSL https://saveto.spotify.com/install.sh | bash
 
 On Windows, run it in Git Bash. The installer downloads the binary, verifies it, and prints:
 ```
-✓ Installed save-to-spotify v0.2.0 to /usr/local/bin
+✓ Installed save-to-spotify v0.2.1 to /usr/local/bin
 Next: save-to-spotify setup
 ```
 
