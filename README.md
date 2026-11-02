@@ -53,7 +53,7 @@ Common options:
 
 ```bash
 # Pin a specific version
-curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --version 0.2.0
+curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --version 0.2.1
 
 # Custom install directory
 curl -fsSL https://saveto.spotify.com/install.sh | bash -s -- --dir ~/.local/bin
@@ -94,7 +94,7 @@ If you can't run the install script:
 1. Download `save-to-spotify-{os}-{arch}-v{version}.zip` and its matching `.sha256` from the [releases page](https://github.com/spotify/save-to-spotify/releases).
 2. Verify integrity:
    ```bash
-   shasum -c save-to-spotify-darwin-arm64-v0.2.0.zip.sha256
+   shasum -c save-to-spotify-darwin-arm64-v0.2.1.zip.sha256
    ```
 3. Unzip, you get the binary plus a `skills/save-to-spotify/` tree.
 4. Move the binary to a directory on your `PATH` and `chmod +x` it (not needed on Windows).
